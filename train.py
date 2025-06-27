@@ -31,13 +31,13 @@ from docopt import docopt
 
 from trading_bot.agent import Agent
 from trading_bot.methods import train_model, evaluate_model
+from trading_bot.environment import TradingEnvironment
 from trading_bot.utils import (
     load_prepared_data,
     format_currency,
     format_position,
     show_train_result,
     switch_k_backend_device,
-    get_all_states
 )
 
 
@@ -53,9 +53,9 @@ def main(data_dir, window_size, batch_size, ep_count, patience=3,
     logging.info(f"Chargement des données pré-splittées depuis {data_dir}")
     train_data, val_data, test_data = load_prepared_data(data_dir)
     
-    # Pré-calculer les états pour l'entraînement et la validation
-    train_states = get_all_states(train_data, window_size)
-    val_states = get_all_states(val_data, window_size)
+    # Initialiser les environnements
+    train_env = TradingEnvironment(train_data, window_size)
+    val_env = TradingEnvironment(val_data, window_size)
     
     # Calculer le nombre de features pour l'agent
     n_features = train_data['features'].shape[1]
@@ -87,9 +87,9 @@ def main(data_dir, window_size, batch_size, ep_count, patience=3,
         print(f"\n{'─' * 60}")
         logging.info(f"🎯 Episode {episode}/{ep_count}")
         
-        train_result = train_model(agent, episode, train_data, train_states, ep_count=ep_count,
-                                   batch_size=batch_size, window_size=window_size)
-        val_result, _ = evaluate_model(agent, val_data, val_states, window_size, debug)
+        train_result = train_model(agent, episode, train_env, ep_count=ep_count,
+                                   batch_size=batch_size)
+        val_result, _ = evaluate_model(agent, val_env, debug)
         show_train_result(train_result, val_result, initial_offset)
         
         # Status du meilleur modèle et early stopping

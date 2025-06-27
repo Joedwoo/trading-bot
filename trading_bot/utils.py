@@ -1,168 +1,109 @@
 import os
-import math
 import logging
+import math
 
-import pandas as pd
 import numpy as np
+import pandas as pd
+from sklearn.preprocessing import MinMaxScaler
 
 import keras.backend as K
+
 from tqdm import tqdm
-from .ops import get_state
+import coloredlogs
+
+# Set Keras backend to TensorFlow
+os.environ["KERAS_BACKEND"] = "tensorflow"
 
 
-# Formats Position
-format_position = lambda price: ('-$' if price < 0 else '+$') + '{0:.2f}'.format(abs(price))
+def format_currency(price):
+    """Formats a price float into a currency string."""
+    return "${:,.2f}".format(price)
 
 
-# Formats Currency
-format_currency = lambda price: '${0:.2f}'.format(abs(price))
+def format_position(price):
+    """Formats a price float into a currency string with sign."""
+    return "${:+, .2f}".format(price)
 
 
 def show_train_result(result, val_position, initial_offset):
-    """ Displays training results
-    """
-    episode, ep_count, train_profit, train_loss = result
-    
-    if val_position == initial_offset or val_position == 0.0:
-        logging.info(f"📈 Train: {format_position(train_profit):>10} | "
-                    f"📊 Val: {'INUTILE':>10} | "
-                    f"📉 Loss: {train_loss:>7.4f}")
+    """Displays training results."""
+    if val_position == initial_offset:
+        logging.info("Validation Position: USELESS")
     else:
-        logging.info(f"📈 Train: {format_position(train_profit):>10} | "
-                    f"📊 Val: {format_position(val_position):>10} | "
-                    f"📉 Loss: {train_loss:>7.4f}")
+        logging.info(f"Validation Position: {format_position(val_position)} | Profit: {format_currency(val_position - initial_offset)}")
 
 
-def show_eval_result(model_name, profit, initial_offset):
-    """ Displays eval results
-    """
-    if profit == initial_offset or profit == 0.0:
-        logging.info('{}: USELESS\n'.format(model_name))
-    else:
-        logging.info('{}: {}\n'.format(model_name, format_position(profit)))
+def get_stock_price_change(stock_prices):
+    """Calculates the change in stock prices."""
+    return stock_prices.diff().dropna().to_numpy()
 
 
-def get_stock_data(stock_file):
-    """Reads stock data from csv file with multiple features
-    Returns: dict with 'features' (all features except price/one_day_percentage), 'prices' (price column), and 'dates'
-    """
-    df = pd.read_csv(stock_file)
-    
-    # Features à utiliser (toutes sauf date, price et one_day_percentage)
-    feature_columns = ['FGIndex', 'rsi', 'adx', 'standard_deviation', 'sma50', 'five_day_percentage']
-    
-    # Vérifier que toutes les colonnes existent
-    missing_cols = [col for col in feature_columns if col not in df.columns]
-    if missing_cols:
-        logging.warning(f"Colonnes manquantes: {missing_cols}")
-        feature_columns = [col for col in feature_columns if col in df.columns]
-    
-    features = df[feature_columns].values
-    prices = df['price'].values
-    
-    # Récupérer les dates si elles existent
-    dates = None
-    if 'date' in df.columns:
-        dates = df['date'].values
-    
-    result = {
-        'features': features,
-        'prices': prices
-    }
-    
-    if dates is not None:
-        result['dates'] = dates
-    
-    return result
+def get_stock_data(csv_file):
+    """Loads data from a CSV file and calculates features."""
+    logging.info(f"Chargement et préparation des données depuis {csv_file}...")
+    data = pd.read_csv(csv_file)
+    data.sort_values('date', inplace=True)
+    data.reset_index(drop=True, inplace=True)
 
+    # Assurer que les colonnes nécessaires sont présentes
+    required_cols = {'date', 'price', 'FGIndex', 'rsi', 'adx', 'standard_deviation', 'sma50', 'five_day_percentage'}
+    if not required_cols.issubset(data.columns):
+        missing = required_cols - set(data.columns)
+        raise ValueError(f"Colonnes manquantes dans le fichier CSV: {missing}")
 
-def load_prepared_data(data_dir):
-    """Charge les données pré-splittées depuis un répertoire
-    Returns: train_data, val_data, test_data (chacun étant un dict avec 'features' et 'prices')
-    """
-    train_file = os.path.join(data_dir, 'train_data.csv')
-    val_file = os.path.join(data_dir, 'val_data.csv') 
-    test_file = os.path.join(data_dir, 'test_data.csv')
-    
-    # Vérifier que tous les fichiers existent
-    for file_path in [train_file, val_file, test_file]:
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"Fichier manquant: {file_path}. Exécutez d'abord prepare_data.py")
-    
-    # Charger chaque dataset
-    train_data = get_stock_data(train_file)
-    val_data = get_stock_data(val_file)
-    test_data = get_stock_data(test_file)
-    
-    logging.info(f"Données chargées depuis {data_dir}:")
-    logging.info(f"  - Train: {len(train_data['prices'])} échantillons")
-    logging.info(f"  - Val: {len(val_data['prices'])} échantillons") 
-    logging.info(f"  - Test: {len(test_data['prices'])} échantillons")
-    logging.info(f"  - Features: {train_data['features'].shape[1]}")
-    
-    return train_data, val_data, test_data
+    # Supprimer les lignes avec des NaN (générés par les indicateurs)
+    data.dropna(inplace=True)
 
+    # Récupérer les dates, prix et features
+    dates = data['date'].to_numpy()
+    prices = data['price'].to_numpy()
+    
+    feature_cols = ['FGIndex', 'rsi', 'adx', 'standard_deviation', 'sma50', 'five_day_percentage']
+    features = data[feature_cols].to_numpy()
+    
+    # Normalisation des features
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    features_scaled = scaler.fit_transform(features)
 
-def get_all_states(data, window_size):
-    """
-    Pré-calcule tous les états (fenêtres glissantes) pour un dataset donné.
-    """
-    logging.info(f"Pré-calcul des états pour un dataset de taille {len(data['prices'])}...")
-    
-    data_length = len(data['prices'])
-    all_states = []
-    
-    # Utiliser tqdm pour afficher une barre de progression
-    for t in tqdm(range(data_length), desc="  - Calcul des états", ncols=100, leave=False):
-        state = get_state(data, t, window_size)
-        all_states.append(state)
-        
-    # Convertir en un seul array numpy pour l'efficacité
-    # Chaque état a une shape (1, feature_size), donc on squeeze pour avoir (data_length, feature_size)
-    return np.array(all_states).squeeze(axis=1)
+    return {'dates': dates, 'prices': prices, 'features': features_scaled}
 
 
 def split_data(data, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15):
-    """Split data into train, validation and test sets
-    """
-    if abs(train_ratio + val_ratio + test_ratio - 1.0) > 1e-6:
-        raise ValueError("Les ratios doivent sommer à 1.0")
+    """Splits data into training, validation, and test sets."""
+    data_length = len(data['prices'])
     
-    total_len = len(data['prices'])
-    train_len = int(total_len * train_ratio)
-    val_len = int(total_len * val_ratio)
+    train_size = int(data_length * train_ratio)
+    val_size = int(data_length * val_ratio)
     
-    train_data = {
-        'features': data['features'][:train_len],
-        'prices': data['prices'][:train_len]
-    }
+    train_end = train_size
+    val_end = train_size + val_size
     
-    val_data = {
-        'features': data['features'][train_len:train_len + val_len],
-        'prices': data['prices'][train_len:train_len + val_len]
-    }
-    
-    test_data = {
-        'features': data['features'][train_len + val_len:],
-        'prices': data['prices'][train_len + val_len:]
-    }
-    
-    # Ajouter les dates si elles existent
-    if 'dates' in data:
-        train_data['dates'] = data['dates'][:train_len]
-        val_data['dates'] = data['dates'][train_len:train_len + val_len]
-        test_data['dates'] = data['dates'][train_len + val_len:]
-    
-    logging.info(f"Split data: Train={len(train_data['prices'])}, Val={len(val_data['prices'])}, Test={len(test_data['prices'])}")
+    train_data = {key: val[:train_end] for key, val in data.items()}
+    val_data = {key: val[train_end:val_end] for key, val in data.items()}
+    test_data = {key: val[val_end:] for key, val in data.items()}
     
     return train_data, val_data, test_data
 
 
-def switch_k_backend_device():
-    """ Switches `keras` backend from GPU to CPU if required.
+def load_prepared_data(data_dir):
+    """Charge les données pré-splittées depuis le disque."""
+    logging.info(f"Chargement des données depuis le dossier: {data_dir}")
+    train_df = pd.read_csv(os.path.join(data_dir, 'train_data.csv'))
+    val_df = pd.read_csv(os.path.join(data_dir, 'val_data.csv'))
+    test_df = pd.read_csv(os.path.join(data_dir, 'test_data.csv'))
 
-    Faster computation on CPU (if using tensorflow-gpu).
-    """
+    def extract_from_df(df):
+        return {
+            'dates': df['date'].to_numpy(),
+            'prices': df['price'].to_numpy(),
+            'features': df.drop(columns=['date', 'price']).to_numpy()
+        }
+
+    return extract_from_df(train_df), extract_from_df(val_df), extract_from_df(test_df)
+
+
+def switch_k_backend_device():
+    """Switches Keras backend to TensorFlow for CPU."""
     if K.backend() == "tensorflow":
         logging.debug("switching to TensorFlow for CPU")
         os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
