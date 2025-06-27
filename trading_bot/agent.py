@@ -7,9 +7,9 @@ import numpy as np
 import tensorflow as tf
 import keras.backend as K
 
-from keras.models import Sequential, Input
+from keras.models import Sequential
 from keras.models import load_model, clone_model
-from keras.layers import Dense
+from keras.layers import Dense, Input
 from keras.optimizers import Adam
 import keras
 
