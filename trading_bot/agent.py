@@ -1,4 +1,5 @@
 import random
+import logging
 
 from collections import deque
 
@@ -10,8 +11,10 @@ from keras.models import Sequential
 from keras.models import load_model, clone_model
 from keras.layers import Dense
 from keras.optimizers import Adam
+import keras
 
 
+@keras.saving.register_keras_serializable()
 def huber_loss(y_true, y_pred, clip_delta=1.0):
     """Huber loss - Custom Loss Function for Q Learning
 
@@ -19,20 +22,22 @@ def huber_loss(y_true, y_pred, clip_delta=1.0):
             https://jaromiru.com/2017/05/27/on-using-huber-loss-in-deep-q-learning/
     """
     error = y_true - y_pred
-    cond = K.abs(error) <= clip_delta
-    squared_loss = 0.5 * K.square(error)
-    quadratic_loss = 0.5 * K.square(clip_delta) + clip_delta * (K.abs(error) - clip_delta)
-    return K.mean(tf.where(cond, squared_loss, quadratic_loss))
+    cond = tf.abs(error) <= clip_delta
+    squared_loss = 0.5 * tf.square(error)
+    quadratic_loss = 0.5 * tf.square(clip_delta) + clip_delta * (tf.abs(error) - clip_delta)
+    return tf.reduce_mean(tf.where(cond, squared_loss, quadratic_loss))
 
 
 class Agent:
     """ Stock Trading Bot """
 
-    def __init__(self, state_size, strategy="t-dqn", reset_every=1000, pretrained=False, model_name=None):
+    def __init__(self, window_size, n_features, strategy="t-dqn", reset_every=1000, pretrained=False, model_name=None):
         self.strategy = strategy
 
         # agent config
-        self.state_size = state_size    	# normalized previous days
+        self.window_size = window_size
+        self.n_features = n_features
+        self.state_size = (window_size - 1) + n_features  # price_diffs + additional_features
         self.action_size = 3           		# [sit, buy, sell]
         self.model_name = model_name
         self.inventory = []
@@ -48,7 +53,7 @@ class Agent:
         self.learning_rate = 0.001
         self.loss = huber_loss
         self.custom_objects = {"huber_loss": huber_loss}  # important for loading the model from memory
-        self.optimizer = Adam(lr=self.learning_rate)
+        self.optimizer = Adam(learning_rate=self.learning_rate)
 
         if pretrained and self.model_name is not None:
             self.model = self.load()
@@ -179,6 +184,11 @@ class Agent:
 
     def save(self, episode):
         self.model.save("models/{}_{}".format(self.model_name, episode))
+    
+    def save_best(self, suffix="best"):
+        """Sauvegarde le meilleur modèle"""
+        self.model.save("models/{}_{}".format(self.model_name, suffix))
+        logging.info(f"💾 Meilleur modèle sauvegardé: models/{self.model_name}_{suffix}")
 
     def load(self):
         return load_model("models/" + self.model_name, custom_objects=self.custom_objects)
