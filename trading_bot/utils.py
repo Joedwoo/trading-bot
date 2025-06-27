@@ -6,6 +6,8 @@ import pandas as pd
 import numpy as np
 
 import keras.backend as K
+from tqdm import tqdm
+from .ops import get_state
 
 
 # Formats Position
@@ -19,12 +21,16 @@ format_currency = lambda price: '${0:.2f}'.format(abs(price))
 def show_train_result(result, val_position, initial_offset):
     """ Displays training results
     """
+    episode, ep_count, train_profit, train_loss = result
+    
     if val_position == initial_offset or val_position == 0.0:
-        logging.info('Episode {}/{} - Train Position: {}  Val Position: USELESS  Train Loss: {:.4f}'
-                     .format(result[0], result[1], format_position(result[2]), result[3]))
+        logging.info(f"📈 Train: {format_position(train_profit):>10} | "
+                    f"📊 Val: {'INUTILE':>10} | "
+                    f"📉 Loss: {train_loss:>7.4f}")
     else:
-        logging.info('Episode {}/{} - Train Position: {}  Val Position: {}  Train Loss: {:.4f})'
-                     .format(result[0], result[1], format_position(result[2]), format_position(val_position), result[3],))
+        logging.info(f"📈 Train: {format_position(train_profit):>10} | "
+                    f"📊 Val: {format_position(val_position):>10} | "
+                    f"📉 Loss: {train_loss:>7.4f}")
 
 
 def show_eval_result(model_name, profit, initial_offset):
@@ -95,6 +101,25 @@ def load_prepared_data(data_dir):
     logging.info(f"  - Features: {train_data['features'].shape[1]}")
     
     return train_data, val_data, test_data
+
+
+def get_all_states(data, window_size):
+    """
+    Pré-calcule tous les états (fenêtres glissantes) pour un dataset donné.
+    """
+    logging.info(f"Pré-calcul des états pour un dataset de taille {len(data['prices'])}...")
+    
+    data_length = len(data['prices'])
+    all_states = []
+    
+    # Utiliser tqdm pour afficher une barre de progression
+    for t in tqdm(range(data_length), desc="  - Calcul des états", ncols=100, leave=False):
+        state = get_state(data, t, window_size)
+        all_states.append(state)
+        
+    # Convertir en un seul array numpy pour l'efficacité
+    # Chaque état a une shape (1, feature_size), donc on squeeze pour avoir (data_length, feature_size)
+    return np.array(all_states).squeeze(axis=1)
 
 
 def split_data(data, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15):

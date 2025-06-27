@@ -36,7 +36,8 @@ from trading_bot.utils import (
     format_currency,
     format_position,
     show_train_result,
-    switch_k_backend_device
+    switch_k_backend_device,
+    get_all_states
 )
 
 
@@ -51,6 +52,10 @@ def main(data_dir, window_size, batch_size, ep_count, patience=3,
     # Charger les données pré-splittées
     logging.info(f"Chargement des données pré-splittées depuis {data_dir}")
     train_data, val_data, test_data = load_prepared_data(data_dir)
+    
+    # Pré-calculer les états pour l'entraînement et la validation
+    train_states = get_all_states(train_data, window_size)
+    val_states = get_all_states(val_data, window_size)
     
     # Calculer le nombre de features pour l'agent
     n_features = train_data['features'].shape[1]
@@ -68,6 +73,7 @@ def main(data_dir, window_size, batch_size, ep_count, patience=3,
     patience_counter = 0
     best_episode = 0
     
+    print("=" * 80)
     logging.info("🚀 Début de l'entraînement...")
     logging.info(f"  - Stratégie: {strategy}")
     logging.info(f"  - Episodes: {ep_count}")
@@ -75,14 +81,19 @@ def main(data_dir, window_size, batch_size, ep_count, patience=3,
     logging.info(f"  - Batch size: {batch_size}")
     logging.info(f"  - Modèle: {model_name}")
     logging.info(f"  - Patience: {patience} épisodes")
+    print("=" * 80)
 
     for episode in range(1, ep_count + 1):
-        train_result = train_model(agent, episode, train_data, ep_count=ep_count,
+        print(f"\n{'─' * 60}")
+        logging.info(f"🎯 Episode {episode}/{ep_count}")
+        
+        train_result = train_model(agent, episode, train_data, train_states, ep_count=ep_count,
                                    batch_size=batch_size, window_size=window_size)
-        val_result, _ = evaluate_model(agent, val_data, window_size, debug)
+        val_result, _ = evaluate_model(agent, val_data, val_states, window_size, debug)
         show_train_result(train_result, val_result, initial_offset)
         
-        # Vérifier si c'est le meilleur modèle
+        # Status du meilleur modèle et early stopping
+        print(f"{'─' * 40}")
         if val_result > best_val_profit:
             best_val_profit = val_result
             best_episode = episode
@@ -90,25 +101,35 @@ def main(data_dir, window_size, batch_size, ep_count, patience=3,
             
             # Sauvegarder le meilleur modèle
             agent.save_best()
-            logging.info(f"🏆 Nouveau meilleur résultat de validation: ${best_val_profit:.2f} (Episode {episode})")
+            logging.info(f"🏆 Nouveau record ! Validation: ${best_val_profit:.2f}")
+            logging.info(f"💾 Meilleur modèle sauvegardé")
         else:
             patience_counter += 1
-            logging.info(f"⏳ Pas d'amélioration depuis {patience_counter} épisode(s)")
+            logging.info(f"⏳ Pas d'amélioration depuis {patience_counter}/{patience} épisode(s)")
+            logging.info(f"🎯 Record actuel: ${best_val_profit:.2f} (Episode {best_episode})")
             
             # Early stopping si patience dépassée
             if patience_counter >= patience:
-                logging.info(f"🛑 Early stopping déclenché après {patience} épisodes sans amélioration")
+                print(f"\n{'═' * 60}")
+                logging.info(f"🛑 Early stopping déclenché !")
                 logging.info(f"🏆 Meilleur résultat: ${best_val_profit:.2f} (Episode {best_episode})")
+                print(f"{'═' * 60}")
                 break
         
         # Sauvegarde périodique (tous les 10 épisodes)
         if episode % 10 == 0:
             agent.save(episode)
+            logging.info(f"💾 Sauvegarde périodique: models/{model_name}_{episode}")
     
+    print(f"\n{'═' * 80}")
     logging.info("✅ Entraînement terminé !")
-    logging.info(f"🏆 Meilleur résultat de validation: ${best_val_profit:.2f} (Episode {best_episode})")
-    logging.info(f"💾 Meilleur modèle: models/{model_name}_best")
-    logging.info(f"📁 Modèles sauvegardés: models/{model_name}_*")
+    print(f"{'═' * 80}")
+    logging.info(f"📊 RÉSUMÉ FINAL:")
+    logging.info(f"  🏆 Meilleur résultat validation: ${best_val_profit:.2f} (Episode {best_episode})")
+    logging.info(f"  💾 Meilleur modèle: models/{model_name}_best")
+    logging.info(f"  📁 Modèles sauvegardés: models/{model_name}_*")
+    logging.info(f"  📈 Total épisodes: {episode}/{ep_count}")
+    print(f"{'═' * 80}")
 
 
 if __name__ == "__main__":
