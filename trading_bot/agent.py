@@ -1,6 +1,6 @@
 import random
 import logging
-
+import os
 from collections import deque
 
 import numpy as np
@@ -162,10 +162,12 @@ class Agent:
         return loss
 
     def save(self, episode):
+        os.makedirs("models", exist_ok=True)
         self.model.save("models/{}_{}.keras".format(self.model_name, episode))
     
     def save_best(self, suffix="best"):
         """Sauvegarde le meilleur modèle"""
+        os.makedirs("models", exist_ok=True)
         path = "models/{}_{}.keras".format(self.model_name, suffix)
         self.model.save(path)
         logging.info(f"💾 Meilleur modèle sauvegardé: {path}")
