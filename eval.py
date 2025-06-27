@@ -17,6 +17,7 @@ from docopt import docopt
 
 from trading_bot.agent import Agent
 from trading_bot.methods import evaluate_model
+from trading_bot.environment import TradingEnvironment
 from trading_bot.utils import (
     get_stock_data,
     format_currency,
@@ -34,21 +35,26 @@ def main(eval_stock, window_size, model_name, debug):
     """    
     data = get_stock_data(eval_stock)
     n_features = data['features'].shape[1]
-    initial_offset = data['prices'][1] - data['prices'][0]
+    
+    # Create the evaluation environment
+    env = TradingEnvironment(data, window_size)
 
     # Single Model Evaluation
     if model_name is not None:
         agent = Agent(window_size, n_features, pretrained=True, model_name=model_name)
-        profit, _ = evaluate_model(agent, data, window_size, debug)
-        show_eval_result(model_name, profit, initial_offset)
+        profit, _ = evaluate_model(agent, env, debug)
+        print(f"Evaluation Result for {model_name}:")
+        print(f"  - Profit: {format_position(profit)}")
         
     # Multiple Model Evaluation
     else:
-        for model in os.listdir("models"):
-            if os.path.isfile(os.path.join("models", model)):
-                agent = Agent(window_size, n_features, pretrained=True, model_name=model)
-                profit, _ = evaluate_model(agent, data, window_size, debug)
-                show_eval_result(model, profit, initial_offset)
+        for model_file in os.listdir("models"):
+            if os.path.isfile(os.path.join("models", model_file)):
+                model_path = os.path.splitext(model_file)[0]
+                agent = Agent(window_size, n_features, pretrained=True, model_name=model_path)
+                profit, _ = evaluate_model(agent, env, debug)
+                print(f"Evaluation Result for {model_file}:")
+                print(f"  - Profit: {format_position(profit)}")
                 del agent
 
 

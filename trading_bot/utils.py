@@ -22,7 +22,7 @@ def format_currency(price):
 
 def format_position(price):
     """Formats a price float into a currency string with sign."""
-    return "${:+, .2f}".format(price)
+    return "${:+.2f}".format(price)
 
 
 def show_train_result(result, val_position, initial_offset):
