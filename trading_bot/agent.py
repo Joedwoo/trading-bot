@@ -7,7 +7,7 @@ import numpy as np
 import tensorflow as tf
 import keras.backend as K
 
-from keras.models import Sequential
+from keras.models import Sequential, Input
 from keras.models import load_model, clone_model
 from keras.layers import Dense
 from keras.optimizers import Adam
@@ -72,12 +72,14 @@ class Agent:
     def _model(self):
         """Creates the model
         """
-        model = Sequential()
-        model.add(Dense(units=128, activation="relu", input_dim=self.state_size))
-        model.add(Dense(units=256, activation="relu"))
-        model.add(Dense(units=256, activation="relu"))
-        model.add(Dense(units=128, activation="relu"))
-        model.add(Dense(units=self.action_size))
+        model = Sequential([
+            Input(shape=(self.state_size,)),
+            Dense(units=128, activation="relu"),
+            Dense(units=256, activation="relu"),
+            Dense(units=256, activation="relu"),
+            Dense(units=128, activation="relu"),
+            Dense(units=self.action_size)
+        ])
 
         model.compile(loss=self.loss, optimizer=self.optimizer)
         return model
@@ -160,12 +162,16 @@ class Agent:
         return loss
 
     def save(self, episode):
-        self.model.save("models/{}_{}".format(self.model_name, episode))
+        self.model.save("models/{}_{}.keras".format(self.model_name, episode))
     
     def save_best(self, suffix="best"):
         """Sauvegarde le meilleur modèle"""
-        self.model.save("models/{}_{}".format(self.model_name, suffix))
-        logging.info(f"💾 Meilleur modèle sauvegardé: models/{self.model_name}_{suffix}")
+        path = "models/{}_{}.keras".format(self.model_name, suffix)
+        self.model.save(path)
+        logging.info(f"💾 Meilleur modèle sauvegardé: {path}")
 
     def load(self):
-        return load_model("models/" + self.model_name, custom_objects=self.custom_objects)
+        path = "models/" + self.model_name
+        if not path.endswith((".keras", ".h5")):
+            path += ".keras"
+        return load_model(path, custom_objects=self.custom_objects)
