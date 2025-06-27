@@ -105,80 +105,57 @@ class Agent:
         """Train on previous experiences in memory
         """
         mini_batch = random.sample(self.memory, batch_size)
-        X_train, y_train = [], []
+
+        # Vectorized processing for efficiency
+        states = np.array([transition[0] for transition in mini_batch]).reshape(batch_size, self.state_size)
+        actions = np.array([transition[1] for transition in mini_batch])
+        rewards = np.array([transition[2] for transition in mini_batch])
+        next_states = np.array([transition[3] for transition in mini_batch]).reshape(batch_size, self.state_size)
+        dones = np.array([transition[4] for transition in mini_batch])
+
+        # Get current Q-values for the states in the batch
+        q_values_current = self.model.predict(states, verbose=0)
         
-        # DQN
-        if self.strategy == "dqn":
-            for state, action, reward, next_state, done in mini_batch:
-                if done:
-                    target = reward
-                else:
-                    # approximate deep q-learning equation
-                    target = reward + self.gamma * np.amax(self.model.predict(next_state, verbose=0)[0])
+        # Initialize targets with current Q-values
+        targets = np.copy(q_values_current)
+        
+        # Calculate future Q-values for non-terminal states
+        future_rewards = np.zeros(batch_size)
+        
+        non_terminal_indices = np.where(dones == False)[0]
+        if len(non_terminal_indices) > 0:
+            non_terminal_next_states = next_states[non_terminal_indices]
 
-                # estimate q-values based on current state
-                q_values = self.model.predict(state, verbose=0)
-                # update the target for current action based on discounted reward
-                q_values[0][action] = target
+            if self.strategy == "dqn":
+                q_futures = self.model.predict(non_terminal_next_states, verbose=0)
+                future_rewards[non_terminal_indices] = self.gamma * np.amax(q_futures, axis=1)
+            
+            elif self.strategy == "t-dqn":
+                q_futures = self.target_model.predict(non_terminal_next_states, verbose=0)
+                future_rewards[non_terminal_indices] = self.gamma * np.amax(q_futures, axis=1)
 
-                X_train.append(state[0])
-                y_train.append(q_values[0])
-
-        # DQN with fixed targets
-        elif self.strategy == "t-dqn":
-            if self.n_iter % self.reset_every == 0:
-                # reset target model weights
-                self.target_model.set_weights(self.model.get_weights())
-
-            for state, action, reward, next_state, done in mini_batch:
-                if done:
-                    target = reward
-                else:
-                    # approximate deep q-learning equation with fixed targets
-                    target = reward + self.gamma * np.amax(self.target_model.predict(next_state, verbose=0)[0])
-
-                # estimate q-values based on current state
-                q_values = self.model.predict(state, verbose=0)
-                # update the target for current action based on discounted reward
-                q_values[0][action] = target
-
-                X_train.append(state[0])
-                y_train.append(q_values[0])
-
-        # Double DQN
-        elif self.strategy == "double-dqn":
-            if self.n_iter % self.reset_every == 0:
-                # reset target model weights
-                self.target_model.set_weights(self.model.get_weights())
-
-            for state, action, reward, next_state, done in mini_batch:
-                if done:
-                    target = reward
-                else:
-                    # approximate double deep q-learning equation
-                    target = reward + self.gamma * self.target_model.predict(next_state, verbose=0)[0][np.argmax(self.model.predict(next_state, verbose=0)[0])]
-
-                # estimate q-values based on current state
-                q_values = self.model.predict(state, verbose=0)
-                # update the target for current action based on discounted reward
-                q_values[0][action] = target
-
-                X_train.append(state[0])
-                y_train.append(q_values[0])
+            elif self.strategy == "double-dqn":
+                q_futures_main = self.model.predict(non_terminal_next_states, verbose=0)
+                actions_from_main = np.argmax(q_futures_main, axis=1)
                 
-        else:
-            raise NotImplementedError()
+                q_futures_target = self.target_model.predict(non_terminal_next_states, verbose=0)
+                future_rewards[non_terminal_indices] = self.gamma * q_futures_target[np.arange(len(q_futures_target)), actions_from_main]
+        
+        # Update targets: target = reward (for terminal states) or reward + future_reward
+        targets[np.arange(batch_size), actions] = rewards + future_rewards
+        
+        # Fit the model
+        loss = self.model.fit(states, targets, epochs=1, verbose=0).history["loss"][0]
 
-        # update q-function parameters based on huber loss gradient
-        loss = self.model.fit(
-            np.array(X_train), np.array(y_train),
-            epochs=1, verbose=0
-        ).history["loss"][0]
-
-        # as the training goes on we want the agent to
-        # make less random and more optimal decisions
+        # Decay epsilon
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
+
+        # Update target network for t-dqn and double-dqn
+        if self.strategy in ["t-dqn", "double-dqn"]:
+            self.n_iter += 1
+            if self.n_iter % self.reset_every == 0:
+                self.target_model.set_weights(self.model.get_weights())
 
         return loss
 
