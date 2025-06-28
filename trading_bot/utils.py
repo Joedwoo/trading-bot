@@ -4,7 +4,6 @@ import math
 
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
 
 import keras.backend as K
 
@@ -61,11 +60,8 @@ def get_stock_data(csv_file):
     feature_cols = ['FGIndex', 'rsi', 'adx', 'standard_deviation', 'sma50', 'five_day_percentage']
     features = data[feature_cols].to_numpy()
     
-    # Normalisation des features
-    scaler = MinMaxScaler(feature_range=(0, 1))
-    features_scaled = scaler.fit_transform(features)
-
-    return {'dates': dates, 'prices': prices, 'features': features_scaled}
+    # Pas de normalisation - on garde les valeurs brutes pour plus de clarté
+    return {'dates': dates, 'prices': prices, 'features': features}
 
 
 def split_data(data, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15):

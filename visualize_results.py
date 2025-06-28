@@ -38,99 +38,127 @@ def analyze_trades(history):
     sell_count = sum(1 for _, action in history if action == "SELL")
     hold_count = sum(1 for _, action in history if action == "HOLD")
 
-    # --- Trade Profit Calculations ---
-    trades = []
-    buy_price = None
+    # --- Trade Profit Calculations (FIFO Logic) ---
+    dollar_trades = []
+    percent_trades = []
+    open_positions = []  # A queue to store buy prices
 
     for price, action in history:
         if action == "BUY":
-            if buy_price is None:  # Register the first buy of a sequence
-                buy_price = price
+            open_positions.append(price)
         elif action == "SELL":
-            if buy_price is not None:
+            if open_positions:  # If there's an open position to sell
+                buy_price = open_positions.pop(0)  # Get the first bought price (FIFO)
                 profit = price - buy_price
-                trades.append(profit)
-                buy_price = None  # Reset for the next trade
+                dollar_trades.append(profit)
+                if buy_price != 0:
+                    percent_trades.append((profit / buy_price) * 100)
 
-    if not trades:
+    if not dollar_trades:
         return {
             "win_rate": 0,
             "total_trades": 0,
-            "average_profit": 0,
+            "average_profit_usd": 0,
+            "average_profit_pct": 0,
             "sharpe_ratio": 0,
             "buy_count": buy_count,
             "sell_count": sell_count,
             "hold_count": hold_count,
         }
 
-    trades = np.array(trades)
+    dollar_trades = np.array(dollar_trades)
     
     # Win Rate
-    wins = trades > 0
-    win_rate = (np.sum(wins) / len(trades)) * 100
+    wins = dollar_trades > 0
+    win_rate = (np.sum(wins) / len(dollar_trades)) * 100
     
     # Average Profit
-    average_profit = np.mean(trades)
+    average_profit_usd = np.mean(dollar_trades)
+    average_profit_pct = np.mean(percent_trades) if percent_trades else 0
     
     # Sharpe Ratio (simplified)
-    std_dev_profit = np.std(trades)
-    sharpe_ratio = average_profit / std_dev_profit if std_dev_profit != 0 else 0
+    std_dev_profit = np.std(dollar_trades)
+    sharpe_ratio = average_profit_usd / std_dev_profit if std_dev_profit != 0 else 0
 
     return {
         "win_rate": win_rate,
-        "total_trades": len(trades),
-        "average_profit": average_profit,
+        "total_trades": len(dollar_trades),
+        "average_profit_usd": average_profit_usd,
+        "average_profit_pct": average_profit_pct,
         "sharpe_ratio": sharpe_ratio,
         "buy_count": buy_count,
         "sell_count": sell_count,
         "hold_count": hold_count,
     }
 
-def plot_performance(data, history, metrics, model_name):
+def plot_performance(data, history, metrics, cumulative_profits, model_name, window_size):
     """
-    Generates and saves a modern plot of the agent's performance.
+    Generates and saves a modern plot of the agent's performance,
+    including a cumulative profit chart.
     """
     prices = data['prices']
     dates = pd.to_datetime(data['dates'])
     
-    buy_points = [(dates[i], prices[i]) for i, (_, action) in enumerate(history) if action == "BUY"]
-    sell_points = [(dates[i], prices[i]) for i, (_, action) in enumerate(history) if action == "SELL"]
+    # Align evaluation data (history, profits) with the full date range
+    eval_start_index = window_size - 1
+    eval_dates = dates[eval_start_index:]
+    eval_prices = prices[eval_start_index:]
 
-    plt.style.use('fivethirtyeight') # Use a modern, aesthetic style
-    fig, ax = plt.subplots(figsize=(16, 8), dpi=300)
+    buy_points = [(eval_dates[i], eval_prices[i]) for i, (_, action) in enumerate(history) if action == "BUY"]
+    sell_points = [(eval_dates[i], eval_prices[i]) for i, (_, action) in enumerate(history) if action == "SELL"]
 
-    # Plot price history
-    ax.plot(dates, prices, label='Prix de Clôture', color='dimgray', linewidth=1.5, alpha=0.8)
+    plt.style.use('fivethirtyeight')
+    fig, (ax1, ax2) = plt.subplots(
+        2, 1,
+        figsize=(16, 12),
+        dpi=300,
+        sharex=True, # Share the x-axis for aligned dates
+        gridspec_kw={'height_ratios': [2.5, 1]} # Give more space to the price chart
+    )
+    fig.suptitle(f'Analyse de Performance : {model_name}', fontsize=20, weight='bold')
 
-    # Plot Buy/Sell markers
+    # --- Chart 1: Price History and Trades ---
+    ax1.plot(dates, prices, label='Prix de Clôture', color='dimgray', linewidth=1.5, alpha=0.8)
     if buy_points:
         buy_dates, buy_prices = zip(*buy_points)
-        ax.scatter(buy_dates, buy_prices, label='Achat', marker='^', color='#2ca02c', s=120, edgecolors='black', zorder=5)
+        ax1.scatter(buy_dates, buy_prices, label='Achat', marker='^', color='#2ca02c', s=120, edgecolors='black', zorder=5)
     if sell_points:
         sell_dates, sell_prices = zip(*sell_points)
-        ax.scatter(sell_dates, sell_prices, label='Vente', marker='v', color='#d62728', s=120, edgecolors='black', zorder=5)
+        ax1.scatter(sell_dates, sell_prices, label='Vente', marker='v', color='#d62728', s=120, edgecolors='black', zorder=5)
     
-    # --- Text and Labels ---
-    ax.set_title(f'Analyse de Performance : {model_name}', fontsize=20, weight='bold')
-    ax.set_ylabel('Prix ($)', fontsize=14, weight='bold')
-    fig.autofmt_xdate() # Auto-format date labels
+    ax1.set_ylabel('Prix ($)', fontsize=14, weight='bold')
+    ax1.legend(loc='lower left', fontsize=12)
+    ax1.grid(True, which='both', linestyle='--', linewidth=0.5)
 
-    # Add metrics text box
+    # --- Chart 2: Cumulative Profit ---
+    ax2.plot(eval_dates, cumulative_profits, label='Profit Cumulé', color='royalblue', linewidth=2)
+    ax2.fill_between(eval_dates, cumulative_profits, 0,
+                     where=(np.array(cumulative_profits) >= 0),
+                     facecolor='green', alpha=0.3, interpolate=True)
+    ax2.fill_between(eval_dates, cumulative_profits, 0,
+                     where=(np.array(cumulative_profits) < 0),
+                     facecolor='red', alpha=0.3, interpolate=True)
+    
+    ax2.set_ylabel('Profit Cumulé ($)', fontsize=14, weight='bold')
+    ax2.legend(loc='lower left', fontsize=12)
+    ax2.grid(True, which='both', linestyle='--', linewidth=0.5)
+
+    # --- Text and General Formatting ---
+    fig.autofmt_xdate()
     stats_text = (
         f"**Performance Stratégie**\n"
         f"  Rendement : {metrics['agent_profit_display']} ({metrics['agent_return_pct']:.2f}%)\n"
+        f"  Trades Complets : {metrics['total_trades']} | Profit Moyen/Trade : {metrics['average_profit_pct']:.2f}%\n"
         f"  Winrate : {metrics['win_rate']:.2f}% | Sharpe : {metrics['sharpe_ratio']:.2f}\n"
         f"  Actions (B/S/H) : {metrics['buy_count']} / {metrics['sell_count']} / {metrics['hold_count']}\n"
         f"\n"
         f"**Benchmark : Buy & Hold**\n"
         f"  Rendement : {metrics['buy_hold_profit_display']} ({metrics['buy_hold_return_pct']:.2f}%)"
     )
-    ax.text(0.015, 0.985, stats_text, transform=ax.transAxes, fontsize=12,
-            verticalalignment='top', bbox=dict(boxstyle='round,pad=0.5', facecolor='white', alpha=0.85))
+    ax1.text(0.015, 0.985, stats_text, transform=ax1.transAxes, fontsize=12,
+             verticalalignment='top', bbox=dict(boxstyle='round,pad=0.5', facecolor='white', alpha=0.85))
 
-    ax.legend(loc='lower left', fontsize=12)
-    plt.grid(True, which='both', linestyle='--', linewidth=0.5)
-    plt.tight_layout()
+    plt.tight_layout(rect=[0, 0, 1, 0.96]) # Adjust for suptitle
     
     output_filename = 'rapport_performance.png'
     fig.savefig(output_filename)
@@ -150,7 +178,7 @@ def main(data_file, model_name):
     agent = Agent(window_size, n_features, pretrained=True, model_name=model_name)
 
     # Evaluate the model
-    agent_profit, history = evaluate_model(agent, env, debug=False)
+    agent_profit, history, cumulative_profits = evaluate_model(agent, env, debug=False)
 
     # --- Calculate All Metrics ---
     # 1. Agent's performance
@@ -182,12 +210,12 @@ def main(data_file, model_name):
     print("  Statistiques des Trades (cycles Achat/Vente complets) :")
     print(f"    - Nombre de Trades Complets:  {metrics['total_trades']}")
     print(f"    - Taux de Réussite (Winrate): {metrics['win_rate']:.2f}%")
-    print(f"    - Profit Moyen par Trade:     {format_currency(metrics['average_profit'])}")
+    print(f"    - Profit Moyen par Trade:     {metrics['average_profit_pct']:.2f}%")
     print(f"    - Ratio de Sharpe (simplifié):  {metrics['sharpe_ratio']:.2f}")
     print("="*50 + "\n")
 
     # Generate and save the plot
-    plot_performance(data, history, metrics, model_name)
+    plot_performance(data, history, metrics, cumulative_profits, model_name, window_size)
 
 if __name__ == "__main__":
     args = docopt(__doc__)

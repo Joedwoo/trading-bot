@@ -77,6 +77,7 @@ def evaluate_model(agent, env, debug):
     state = env.reset()
     agent.inventory = env.inventory  # Sync inventory
     history = []
+    cumulative_profits = []
 
     while True:
         action = agent.act(state.reshape(1, -1), is_eval=True)
@@ -103,6 +104,7 @@ def evaluate_model(agent, env, debug):
 
         state = next_state
         agent.inventory = env.inventory
+        cumulative_profits.append(info['total_profit'])
 
         if done:
-            return info['total_profit'], history
+            return info['total_profit'], history, cumulative_profits

@@ -1,8 +1,8 @@
 # Overview
 
 conda activate trading-bot
-
-
+python prepare_data.py AVGO_5years.csv
+python visualize_results.py data/split/test_data.csv --model-name=model_jpm_colab_best.keras
 
 This project implements a Stock Trading Bot, trained using Deep Reinforcement Learning, specifically Deep Q-learning. Implementation is kept simple and as close as possible to the algorithm discussed in the paper, for learning purposes.
 
