@@ -90,6 +90,9 @@ class TradingEnvironment:
         
         current_price = self.prices[self.current_step]
         reward = 0
+        
+        # Define a small penalty for holding
+        holding_penalty = 0.0005 # 0.05% per step
 
         # --- Execute action ---
         # BUY
@@ -101,6 +104,13 @@ class TradingEnvironment:
             bought_price = self.inventory.pop(0)
             reward = current_price - bought_price
             self.total_profit += reward
+            
+        # HOLD
+        elif action == 0 and len(self.inventory) > 0:
+            # Penalize for holding a position
+            # This encourages the agent to close positions instead of holding indefinitely
+            bought_price = self.inventory[0] # Get the price of the oldest share
+            reward = - (bought_price * holding_penalty)
 
         # --- Move to the next time step ---
         self.current_step += 1
