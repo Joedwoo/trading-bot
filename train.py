@@ -89,7 +89,7 @@ def main(data_dir, window_size, batch_size, ep_count, patience=3,
         
         train_result = train_model(agent, episode, train_env, ep_count=ep_count,
                                    batch_size=batch_size)
-        val_result, _ = evaluate_model(agent, val_env, debug)
+        val_result, _, _ = evaluate_model(agent, val_env, debug)
         show_train_result(train_result, val_result, initial_offset)
         
         # Status du meilleur modèle et early stopping
