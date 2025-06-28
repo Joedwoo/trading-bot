@@ -22,7 +22,6 @@ from trading_bot.utils import (
     get_stock_data,
     format_currency,
     format_position,
-    show_eval_result,
     switch_k_backend_device
 )
 

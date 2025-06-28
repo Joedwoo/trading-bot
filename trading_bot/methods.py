@@ -16,7 +16,7 @@ def train_model(agent, episode, env, ep_count=100, batch_size=32):
     # The agent's own inventory should be synced with the env's
     agent.inventory = env.inventory
     avg_loss = []
-
+    
     # Action counters
     buy_count, sell_count, hold_count = 0, 0, 0
 
@@ -56,7 +56,7 @@ def train_model(agent, episode, env, ep_count=100, batch_size=32):
 
         if done:
             break
-            
+
     progress_bar.close()
     
     # Final info is retrieved from the last step
@@ -82,7 +82,7 @@ def evaluate_model(agent, env, debug):
         action = agent.act(state.reshape(1, -1), is_eval=True)
 
         current_price = env.prices[env.current_step]
-        
+
         # Log action before stepping
         if action == 1:  # BUY
             history.append((current_price, "BUY"))
@@ -100,7 +100,7 @@ def evaluate_model(agent, env, debug):
         # Log profit after a sell action
         if reward != 0 and debug:
             logging.debug("Position Closed. Profit: {}".format(format_position(reward)))
-            
+
         state = next_state
         agent.inventory = env.inventory
 

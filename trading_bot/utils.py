@@ -53,7 +53,7 @@ def get_stock_data(csv_file):
 
     # Supprimer les lignes avec des NaN (générés par les indicateurs)
     data.dropna(inplace=True)
-
+    
     # Récupérer les dates, prix et features
     dates = data['date'].to_numpy()
     prices = data['price'].to_numpy()

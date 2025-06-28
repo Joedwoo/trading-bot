@@ -96,9 +96,10 @@ class Agent:
         if not is_eval and random.random() <= self.epsilon:
             return random.randrange(self.action_size)
 
-        if self.first_iter:
+        # In training, force a buy on the first step to kickstart exploration
+        if self.first_iter and not is_eval:
             self.first_iter = False
-            return 1 # make a definite buy on the first iter
+            return 1  # Action 1: BUY
 
         action_probs = self.model.predict(state, verbose=0)
         return np.argmax(action_probs[0])
@@ -173,7 +174,22 @@ class Agent:
         logging.info(f"💾 Meilleur modèle sauvegardé: {path}")
 
     def load(self):
-        path = "models/" + self.model_name
+        """
+        Loads a Keras model.
+        It can handle a full path or just a model name in the `models` directory.
+        """
+        path = self.model_name
+        
+        # If the provided name is a full path that exists, use it directly.
+        if os.path.isfile(path):
+            return load_model(path, custom_objects=self.custom_objects)
+        
+        # Otherwise, assume it's a name and construct the path.
+        path = f"models/{self.model_name}"
         if not path.endswith((".keras", ".h5")):
             path += ".keras"
+            
+        if not os.path.isfile(path):
+            raise FileNotFoundError(f"Le fichier du modèle n'a pas été trouvé. Tentative de chemin: {path}")
+            
         return load_model(path, custom_objects=self.custom_objects)
