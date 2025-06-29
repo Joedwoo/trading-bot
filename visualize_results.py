@@ -91,7 +91,7 @@ def analyze_trades(history):
         "hold_count": hold_count,
     }
 
-def plot_performance(data, history, metrics, cumulative_profits, model_name, window_size):
+def plot_performance(data, history, metrics, cumulative_profits, model_name, window_size, fg_index):
     """
     Generates and saves a modern plot of the agent's performance,
     including a cumulative profit chart.
@@ -108,12 +108,12 @@ def plot_performance(data, history, metrics, cumulative_profits, model_name, win
     sell_points = [(eval_dates[i], eval_prices[i]) for i, (_, action) in enumerate(history) if action == "SELL"]
 
     plt.style.use('fivethirtyeight')
-    fig, (ax1, ax2) = plt.subplots(
-        2, 1,
-        figsize=(16, 12),
+    fig, (ax1, ax2, ax3) = plt.subplots(
+        3, 1,
+        figsize=(16, 15),
         dpi=300,
         sharex=True, # Share the x-axis for aligned dates
-        gridspec_kw={'height_ratios': [2.5, 1]} # Give more space to the price chart
+        gridspec_kw={'height_ratios': [2.5, 1, 1]} # Give more space to the price chart
     )
     fig.suptitle(f'Analyse de Performance : {model_name}', fontsize=20, weight='bold')
 
@@ -130,18 +130,24 @@ def plot_performance(data, history, metrics, cumulative_profits, model_name, win
     ax1.legend(loc='lower left', fontsize=12)
     ax1.grid(True, which='both', linestyle='--', linewidth=0.5)
 
-    # --- Chart 2: Cumulative Profit ---
-    ax2.plot(eval_dates, cumulative_profits, label='Profit Cumulé', color='royalblue', linewidth=2)
-    ax2.fill_between(eval_dates, cumulative_profits, 0,
+    # --- Chart 2: FGIndex ---
+    ax2.plot(dates, fg_index, label='FGIndex', color='purple', linewidth=1.5)
+    ax2.set_ylabel('Fear & Greed Index', fontsize=14, weight='bold')
+    ax2.legend(loc='lower left', fontsize=12)
+    ax2.grid(True, which='both', linestyle='--', linewidth=0.5)
+
+    # --- Chart 3: Cumulative Profit ---
+    ax3.plot(eval_dates, cumulative_profits, label='Profit Cumulé', color='royalblue', linewidth=2)
+    ax3.fill_between(eval_dates, cumulative_profits, 0,
                      where=(np.array(cumulative_profits) >= 0),
                      facecolor='green', alpha=0.3, interpolate=True)
-    ax2.fill_between(eval_dates, cumulative_profits, 0,
+    ax3.fill_between(eval_dates, cumulative_profits, 0,
                      where=(np.array(cumulative_profits) < 0),
                      facecolor='red', alpha=0.3, interpolate=True)
     
-    ax2.set_ylabel('Profit Cumulé ($)', fontsize=14, weight='bold')
-    ax2.legend(loc='lower left', fontsize=12)
-    ax2.grid(True, which='both', linestyle='--', linewidth=0.5)
+    ax3.set_ylabel('Profit Cumulé ($)', fontsize=14, weight='bold')
+    ax3.legend(loc='lower left', fontsize=12)
+    ax3.grid(True, which='both', linestyle='--', linewidth=0.5)
 
     # --- Text and General Formatting ---
     fig.autofmt_xdate()
@@ -170,6 +176,11 @@ def main(data_file, model_name):
     """
     # Load data
     data = get_stock_data(data_file)
+    
+    # Re-read the CSV to get the FGIndex column easily
+    full_df = pd.read_csv(data_file)
+    fg_index = full_df['FGIndex'].values
+
     window_size = 10 # Should be consistent with the trained model
     n_features = data['features'].shape[1]
 
@@ -215,7 +226,7 @@ def main(data_file, model_name):
     print("="*50 + "\n")
 
     # Generate and save the plot
-    plot_performance(data, history, metrics, cumulative_profits, model_name, window_size)
+    plot_performance(data, history, metrics, cumulative_profits, model_name, window_size, fg_index)
 
 if __name__ == "__main__":
     args = docopt(__doc__)
