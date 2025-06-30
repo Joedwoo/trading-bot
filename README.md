@@ -1,8 +1,8 @@
 # Overview
 
 conda activate trading-bot
-python prepare_data.py RMS_5years.csv
-python visualize_results.py data/split/test_data.csv --model-name=model_hsic_colab_best.keras
+python prepare_data.py GOOGL_5years.csv
+python visualize_results.py data/split/test_data.csv --model-name=model_rms_colab_best.keras
 
 
 
