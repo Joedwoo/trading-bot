@@ -92,7 +92,7 @@ class TradingEnvironment:
         reward = 0
         
         # Define a small penalty for holding
-        holding_penalty = 0.0005 # 0.05% per step
+        holding_penalty = 0.0001 # 0.05% per step
 
         # --- Execute action ---
         # BUY
@@ -102,16 +102,8 @@ class TradingEnvironment:
         # SELL
         elif action == 2 and len(self.inventory) > 0:
             bought_price = self.inventory.pop(0)
-            profit = current_price - bought_price
-            
-            # Add a bonus for selling with profit
-            sell_bonus = 0.05 # 5% bonus on profit
-            if profit > 0:
-                reward = profit + (profit * sell_bonus)
-            else:
-                reward = profit
-
-            self.total_profit += profit # Total profit remains unchanged
+            reward = current_price - bought_price
+            self.total_profit += reward
             
         # HOLD
         elif action == 0 and len(self.inventory) > 0:

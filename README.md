@@ -2,7 +2,7 @@
 
 conda activate trading-bot
 python prepare_data.py GS_5years.csv
-python visualize_results.py data/split/test_data.csv --model-name=model_brk-b_colab_best.keras
+python visualize_results.py data/split/test_data.csv --model-name=model_gs_colab_best.keras
 
 
 
