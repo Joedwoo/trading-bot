@@ -1,8 +1,8 @@
 # Overview
 
 conda activate trading-bot
-python prepare_data.py BLK_5years.csv
-python visualize_results.py data/split/test_data.csv --model-name=model_googl_colab_best.keras
+python prepare_data.py BRK-B_5years.csv
+python visualize_results.py data/split/test_data.csv --model-name=model_blk_colab_best.keras
 
 
 

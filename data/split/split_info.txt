@@ -6,7 +6,7 @@ Val samples: 187 (14.9%)
 Test samples: 189 (15.1%)
 Number of features: 6
 Feature names: ['FGIndex', 'rsi', 'adx', 'standard_deviation', 'sma50', 'five_day_percentage']
-Date range: 2020-06-26 to 2025-06-23
-Train dates: 2020-06-26 to 2023-12-19
-Val dates: 2023-12-20 to 2024-09-18
-Test dates: 2024-09-19 to 2025-06-23
+Date range: 2020-07-02 to 2025-06-27
+Train dates: 2020-07-02 to 2023-12-26
+Val dates: 2023-12-27 to 2024-09-24
+Test dates: 2024-09-25 to 2025-06-27
