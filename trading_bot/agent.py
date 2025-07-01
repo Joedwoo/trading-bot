@@ -37,7 +37,7 @@ class Agent:
         # agent config
         self.window_size = window_size
         self.n_features = n_features
-        self.state_size = (window_size - 1) + n_features + 1  # price_diffs + tech_features + portfolio_feature
+        self.state_size = (window_size - 1) + n_features  # price_diffs + additional_features
         self.action_size = 3           		# [sit, buy, sell]
         self.model_name = model_name
         self.inventory = []

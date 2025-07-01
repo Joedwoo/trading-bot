@@ -60,7 +60,7 @@ def main(data_dir, window_size, batch_size, ep_count, patience=3,
     # Calculer le nombre de features pour l'agent
     n_features = train_data['features'].shape[1]
     logging.info(f"Nombre de features: {n_features}")
-    logging.info(f"Taille de l'état: {(window_size - 1) + n_features + 1}")
+    logging.info(f"Taille de l'état: {(window_size - 1) + n_features}")
     
     # Initialiser l'agent avec la nouvelle signature
     agent = Agent(window_size, n_features, strategy=strategy, 

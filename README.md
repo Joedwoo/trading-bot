@@ -2,7 +2,7 @@
 
 conda activate trading-bot
 python prepare_data.py TDG_5years.csv
-python visualize_results.py data/split/test_data.csv --model-name=model_avgo_colab_best.keras
+python visualize_results.py data/split/test_data.csv --model-name=model_tdg_colab_best.keras
 
 
 

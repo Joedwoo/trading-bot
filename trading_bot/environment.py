@@ -7,7 +7,7 @@ class TradingEnvironment:
     This environment generates states on-the-fly to prevent look-ahead bias.
     It manages the agent's portfolio, calculates rewards, and tracks performance.
     """
-    def __init__(self, data, window_size, max_inventory=10):
+    def __init__(self, data, window_size):
         """
         Initialize the trading environment.
 
@@ -16,7 +16,6 @@ class TradingEnvironment:
                          'prices' is a 1D numpy array of stock prices.
                          'features' is a 2D numpy array of technical indicators.
             window_size (int): The number of past days of data to include in the state.
-            max_inventory (int): The maximum number of positions the agent can hold (défaut : 10).
         """
         self.prices = data['prices']
         self.features = data['features']
@@ -24,14 +23,9 @@ class TradingEnvironment:
         self.window_size = window_size
         self.n_features = self.features.shape[1]
         
-        # Ajout d'une feature portefeuille (taille de l'inventaire)
-        self.portfolio_features = 1  # ex. nombre de positions ouvertes
-        # Le vecteur d'état = différences de prix + indicateurs techniques + features portefeuille
-        self.state_size = (self.window_size - 1) + self.n_features + self.portfolio_features
+        # The state size is the number of price differences + number of features
+        self.state_size = (self.window_size - 1) + self.n_features
 
-        # Gestion du portefeuille
-        self.max_inventory = max_inventory  # nombre max de positions ouvertes
-        self.holding_penalty_base = 0.0001  # coût de base (0,01 %)
         # Episode state
         self.inventory = []
         self.total_profit = 0
@@ -60,11 +54,8 @@ class TradingEnvironment:
         # 2. Current features
         current_features = self.features[self.current_step]
         
-        # 3. Feature portefeuille : taille actuelle de l'inventaire
-        inventory_feature = np.array([len(self.inventory)])
-
-        # Combiner pour former le vecteur d'état
-        state = np.concatenate((price_diffs, current_features, inventory_feature)).flatten()
+        # Combine them to form the state
+        state = np.concatenate((price_diffs, current_features)).flatten()
         return state
 
     def reset(self):
@@ -100,18 +91,13 @@ class TradingEnvironment:
         current_price = self.prices[self.current_step]
         reward = 0
         
-        # Pénalité de holding progressive en fonction du ratio d'utilisation du portefeuille
-        inventory_ratio = len(self.inventory) / self.max_inventory if self.max_inventory > 0 else 0
-        penalty_rate = self.holding_penalty_base * (1 + inventory_ratio)  # varie entre 1× et 2× le taux de base
+        # Define a small penalty for holding
+        holding_penalty = 0.0001 # 0.05% per step
 
         # --- Execute action ---
-        # BUY : uniquement si plafond de positions non atteint
+        # BUY
         if action == 1:
-            if len(self.inventory) < self.max_inventory:
-                self.inventory.append(current_price)
-            else:
-                # Pénalité supplémentaire car portefeuille saturé
-                reward = - (current_price * penalty_rate)
+            self.inventory.append(current_price)
 
         # SELL
         elif action == 2 and len(self.inventory) > 0:
@@ -124,7 +110,7 @@ class TradingEnvironment:
             # Penalize for holding a position
             # This encourages the agent to close positions instead of holding indefinitely
             bought_price = self.inventory[0] # Get the price of the oldest share
-            reward = - (bought_price * penalty_rate)
+            reward = - (bought_price * holding_penalty)
 
         # --- Move to the next time step ---
         self.current_step += 1
