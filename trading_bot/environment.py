@@ -7,7 +7,7 @@ class TradingEnvironment:
     This environment generates states on-the-fly to prevent look-ahead bias.
     It manages the agent's portfolio, calculates rewards, and tracks performance.
     """
-    def __init__(self, data, window_size, max_inventory=5):
+    def __init__(self, data, window_size, max_inventory=10):
         """
         Initialize the trading environment.
 
@@ -16,7 +16,7 @@ class TradingEnvironment:
                          'prices' is a 1D numpy array of stock prices.
                          'features' is a 2D numpy array of technical indicators.
             window_size (int): The number of past days of data to include in the state.
-            max_inventory (int): The maximum number of positions the agent can hold.
+            max_inventory (int): The maximum number of positions the agent can hold (défaut : 10).
         """
         self.prices = data['prices']
         self.features = data['features']
