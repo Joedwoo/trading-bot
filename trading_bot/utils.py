@@ -7,6 +7,9 @@ import pandas as pd
 
 import keras.backend as K
 
+# Optionnel : détection GPU
+import tensorflow as tf
+
 from tqdm import tqdm
 import coloredlogs
 
@@ -98,8 +101,23 @@ def load_prepared_data(data_dir):
     return extract_from_df(train_df), extract_from_df(val_df), extract_from_df(test_df)
 
 
-def switch_k_backend_device():
-    """Switches Keras backend to TensorFlow for CPU."""
-    if K.backend() == "tensorflow":
-        logging.debug("switching to TensorFlow for CPU")
+def switch_k_backend_device(force_cpu=False):
+    """Configure le backend Keras / TensorFlow.
+
+    - Si `force_cpu=True`, on désactive explicitement le GPU.
+    - Sinon, on laisse TensorFlow utiliser les GPU détectés.
+    """
+    if force_cpu:
         os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+        logging.debug("Mode CPU forcé (CUDA_VISIBLE_DEVICES = -1)")
+        return
+
+    # Vérifier la présence de GPU
+    try:
+        gpus = tf.config.list_physical_devices('GPU')
+        if gpus:
+            logging.debug(f"GPU(s) détecté(s) : {len(gpus)} – entraînement sur GPU activé")
+        else:
+            logging.debug("Aucun GPU détecté – TensorFlow utilisera le CPU")
+    except Exception as e:
+        logging.debug(f"Impossible de lister les GPU TensorFlow : {e} – CPU par défaut")
