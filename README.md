@@ -1,8 +1,8 @@
 # Overview
 
 conda activate trading-bot
-python prepare_data.py CRWD_5years.csv
-python visualize_results.py data/split/test_data.csv --model-name=model_mck_colab_best.keras
+python prepare_data.py WFC_5years.csv
+python visualize_results.py data/split/test_data.csv --model-name=model_crwd_colab_best.keras
 
 
 

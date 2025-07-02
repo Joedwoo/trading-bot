@@ -1,12 +1,12 @@
 Dataset split information
 ========================
-Total samples: 1253
-Train samples: 877 (70.0%)
-Val samples: 187 (14.9%)
+Total samples: 1254
+Train samples: 877 (69.9%)
+Val samples: 188 (15.0%)
 Test samples: 189 (15.1%)
 Number of features: 6
 Feature names: ['FGIndex', 'rsi', 'adx', 'standard_deviation', 'sma50', 'five_day_percentage']
-Date range: 2020-07-06 to 2025-06-30
+Date range: 2020-07-06 to 2025-07-01
 Train dates: 2020-07-06 to 2023-12-27
-Val dates: 2023-12-28 to 2024-09-25
-Test dates: 2024-09-26 to 2025-06-30
+Val dates: 2023-12-28 to 2024-09-26
+Test dates: 2024-09-27 to 2025-07-01
