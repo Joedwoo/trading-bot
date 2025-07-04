@@ -1,10 +1,10 @@
 # Overview
 
 conda activate trading-bot
-python prepare_data.py BKNG_5years.csv
-python visualize_results.py data/split/test_data.csv --model-name=model_hlt_colab_best.keras
+python prepare_data.py IBKR_5years.csv
+python visualize_results.py data/split/test_data.csv --model-name=model_bkng_colab_best.keras
 
-python "visualize_results copy.py" data/split/test_data.csv --model-name=model_hlt_colab_best.keras
+
 
 
 
