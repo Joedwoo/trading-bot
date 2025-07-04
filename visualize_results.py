@@ -189,7 +189,7 @@ def main(data_file, model_name):
     agent = Agent(window_size, n_features, pretrained=True, model_name=model_name)
 
     # Evaluate the model
-    agent_profit, history, cumulative_profits = evaluate_model(agent, env, debug=False)
+    agent_profit, history, cumulative_profits, _ = evaluate_model(agent, env, debug=False)
 
     # --- Calculate All Metrics ---
     # 1. Agent's performance
