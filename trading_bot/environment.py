@@ -12,15 +12,13 @@ class TradingEnvironment:
         Initialize the trading environment.
 
         Args:
-            data (dict): A dictionary containing 'prices', 'features', and 'dates'.
+            data (dict): A dictionary containing 'prices', 'features'.
                          'prices' is a 1D numpy array of stock prices.
                          'features' is a 2D numpy array of technical indicators.
-                         'dates' is a pandas Series or similar of dates.
             window_size (int): The number of past days of data to include in the state.
         """
         self.prices = data['prices']
         self.features = data['features']
-        self.dates = data['dates']
         self.data_length = len(self.prices)
         self.window_size = window_size
         self.n_features = self.features.shape[1]
@@ -32,12 +30,6 @@ class TradingEnvironment:
         self.inventory = []
         self.total_profit = 0
         self.current_step = 0
-
-    def get_current_date(self):
-        """Returns the date of the current step."""
-        if self.current_step < self.data_length:
-            return self.dates[self.current_step]
-        return None
 
     def _get_state(self):
         """

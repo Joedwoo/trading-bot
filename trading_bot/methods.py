@@ -78,75 +78,33 @@ def evaluate_model(agent, env, debug):
     agent.inventory = env.inventory  # Sync inventory
     history = []
     cumulative_profits = []
-    trade_dates = [] # For synchronized date tracking
-    
-    # --- Money Management Logic ---
-    buy_count = 0
-    sell_count = 0
-    # --- End Money Management Logic ---
 
     while True:
-        # Check if the simulation is done before acting
-        if env.current_step >= len(env.prices) - 1:
-            break
-
         action = agent.act(state.reshape(1, -1), is_eval=True)
+
         current_price = env.prices[env.current_step]
-        current_date = env.get_current_date() # Get date before stepping
 
-        # Default action to step is HOLD
-        action_to_step = 0
-
+        # Log action before stepping
         if action == 1:  # BUY
             history.append((current_price, "BUY"))
-            buy_count += 1
-            action_to_step = 1
-
-        elif action == 2 and len(agent.inventory) > 0:  # SELL Signal
-            sell_count_temp = sell_count if sell_count > 0 else 1
-            buy_sell_ratio = buy_count / sell_count_temp
-            
-            # Money Management: Double Sell Logic
-            if buy_sell_ratio > 1.5 and len(agent.inventory) >= 2:
-                # --- Perform first sell ---
-                history.append((current_price, "SELL"))
-                sell_count += 1
-                _, _, done, info = env.step(2) # Step with a SELL action
-                
-                # We need to record the profit after the first sell
-                cumulative_profits.append(info['total_profit'])
-                trade_dates.append(current_date) # Record date for first sell
-
-                # If the first sell ends the simulation, break
-                if done:
-                    return info['total_profit'], history, cumulative_profits, trade_dates
-                
-                # --- Perform second sell at the SAME time step ---
-                # We do NOT advance the state for the agent, but we need to step the env again
-                history.append((current_price, "SELL"))
-                sell_count += 1
-                action_to_step = 2 # The final action for this loop iteration
-            
-            else: # Normal single sell
-                history.append((current_price, "SELL"))
-                sell_count += 1
-                action_to_step = 2
-        
-        else: # HOLD or cannot sell
+            if debug:
+                logging.debug(f"Buy at: {format_currency(current_price)}")
+        elif action == 2 and len(agent.inventory) > 0:  # SELL
+            history.append((current_price, "SELL"))
+            if debug:
+                logging.debug(f"Sell at: {format_currency(current_price)}")
+        else:  # HOLD
             history.append((current_price, "HOLD"))
-            action_to_step = 0
 
-        # --- Step environment for the current or second action ---
-        next_state, _, done, info = env.step(action_to_step)
+        next_state, reward, done, info = env.step(action)
         
-        agent.inventory = env.inventory # Sync after step
+        # Log profit after a sell action
+        if reward != 0 and debug:
+            logging.debug("Position Closed. Profit: {}".format(format_position(reward)))
+
         state = next_state
+        agent.inventory = env.inventory
         cumulative_profits.append(info['total_profit'])
-        trade_dates.append(current_date) # Record date for the action of this step
 
         if done:
-            return info['total_profit'], history, cumulative_profits, trade_dates
-
-    # This return is for cases where the loop breaks without `done` being True inside
-    final_profit = env.total_profit
-    return final_profit, history, cumulative_profits, trade_dates
+            return info['total_profit'], history, cumulative_profits

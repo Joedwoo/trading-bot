@@ -143,15 +143,11 @@ def plot_single_performance(data, history, metrics, cumulative_profits, model_na
     ax2.grid(True, which='both', linestyle='--', linewidth=0.5)
 
     # --- Chart 3: Cumulative Profit ---
-    # We plot profits against the dates from the *next* day onwards, as profit is realized after the day's action.
-    # We must also ensure the profit array and date array have the same length for plotting.
-    profit_dates = eval_dates[:len(cumulative_profits)]
-    
-    ax3.plot(profit_dates, cumulative_profits, label='Profit Cumulé', color='royalblue', linewidth=2)
-    ax3.fill_between(profit_dates, cumulative_profits, 0,
+    ax3.plot(eval_dates, cumulative_profits, label='Profit Cumulé', color='royalblue', linewidth=2)
+    ax3.fill_between(eval_dates, cumulative_profits, 0,
                      where=(np.array(cumulative_profits) >= 0),
                      facecolor='green', alpha=0.3, interpolate=True)
-    ax3.fill_between(profit_dates, cumulative_profits, 0,
+    ax3.fill_between(eval_dates, cumulative_profits, 0,
                      where=(np.array(cumulative_profits) < 0),
                      facecolor='red', alpha=0.3, interpolate=True)
     
@@ -174,7 +170,6 @@ def plot_single_performance(data, history, metrics, cumulative_profits, model_na
     ax1.text(0.015, 0.985, stats_text, transform=ax1.transAxes, fontsize=12,
              verticalalignment='top', bbox=dict(boxstyle='round,pad=0.5', facecolor='white', alpha=0.85))
 
-    # We need to make sure the layout adjustment happens before saving.
     plt.tight_layout(rect=[0, 0, 1, 0.96]) # Adjust for suptitle
     
     # Save the plot with a symbol-specific name
@@ -183,7 +178,7 @@ def plot_single_performance(data, history, metrics, cumulative_profits, model_na
     plt.close(fig) # Close the figure to free up memory
     logging.info(f"📈 Graphique de performance pour {symbol} sauvegardé sous `{output_filename}`")
 
-def plot_global_performance(all_results, global_stats):
+def plot_global_performance(all_results):
     """
     Generates a global performance report comparing all strategies.
     """
@@ -195,7 +190,7 @@ def plot_global_performance(all_results, global_stats):
     # Create a unified date index from all evaluation periods
     all_dates = set()
     for res in all_results:
-        all_dates.update(pd.to_datetime(res['trade_dates']))
+        all_dates.update(pd.to_datetime(res['dates']))
     
     date_index = pd.DatetimeIndex(sorted(list(all_dates)))
     global_df = pd.DataFrame(index=date_index)
@@ -205,9 +200,8 @@ def plot_global_performance(all_results, global_stats):
         symbol = res['symbol']
         
         # --- Cumulative Profit in % ---
-        # The dates are now guaranteed to be in sync with the profits
         df_profit = pd.DataFrame({
-            'dates': pd.to_datetime(res['trade_dates']),
+            'dates': pd.to_datetime(res['dates']),
             'profit_usd': res['cumulative_profit_usd']
         }).set_index('dates')
         
@@ -231,7 +225,7 @@ def plot_global_performance(all_results, global_stats):
             trade_counts.append(open_trades)
 
         df_trades = pd.DataFrame({
-            'dates': pd.to_datetime(res['trade_dates']),
+            'dates': pd.to_datetime(res['dates']),
             f'{symbol}_open_trades': trade_counts
         }).set_index('dates')
         global_df = global_df.join(df_trades)
@@ -246,70 +240,28 @@ def plot_global_performance(all_results, global_stats):
     trade_cols = [col for col in global_df.columns if 'open_trades' in col]
     global_df['total_open_trades'] = global_df[trade_cols].sum(axis=1)
 
-    # Find the peak of open positions and log it
-    max_open_positions = global_df['total_open_trades'].max()
-    if not global_df.empty:
-        max_open_positions_date = global_df['total_open_trades'].idxmax()
-        logging.info(f"PIC des positions ouvertes : {max_open_positions:.0f} positions le {max_open_positions_date.date()}")
-    else:
-        logging.info(f"PIC des positions ouvertes : {max_open_positions:.0f} positions.")
-
     # --- Plotting ---
     plt.style.use('fivethirtyeight')
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(20, 15), dpi=300, sharex=True)
     fig.suptitle('Analyse de Performance Globale des Stratégies', fontsize=24, weight='bold')
 
-    # Calculate global average profit
-    profit_cols = [col for col in global_df.columns if 'profit_pct' in col]
-    if profit_cols:
-        global_df['average_profit_pct'] = global_df[profit_cols].mean(axis=1)
-
     # Plot 1: Cumulative Profit (%)
-    if profit_cols:
-        # Plot individual assets with a lighter style
-        for col in profit_cols:
-            label = col.replace('_profit_pct', '')
-            global_df[col].plot(ax=ax1, linewidth=1.2, alpha=0.6, label=label)
-        
-        # Plot average line, "en gras" (thicker and dashed)
-        if 'average_profit_pct' in global_df.columns:
-            global_df['average_profit_pct'].plot(ax=ax1, color='black', linewidth=3, linestyle='--', label='Moyenne Globale')
-
+    profit_cols = [col for col in global_df.columns if 'profit_pct' in col]
+    global_df[profit_cols].plot(ax=ax1, linewidth=1.5, legend=False)
     ax1.set_ylabel('Profit Cumulé (%)', fontsize=14, weight='bold')
     ax1.set_title('Évolution du Profit en Pourcentage par Actif', fontsize=16)
-    ax1.legend(title='Symboles & Moyenne', bbox_to_anchor=(1.02, 1), loc='upper left')
+    ax1.legend(labels=[col.replace('_profit_pct', '') for col in profit_cols], title='Symboles', bbox_to_anchor=(1.02, 1), loc='upper left')
     ax1.grid(True, which='both', linestyle='--', linewidth=0.5)
 
     # Plot 2: Total Open Trades
     global_df['total_open_trades'].plot(ax=ax2, color='navy', linewidth=2, label='Total Positions Ouvertes')
     ax2.fill_between(global_df.index, global_df['total_open_trades'], color='lightblue', alpha=0.4)
     ax2.set_ylabel('Nombre de Positions Ouvertes', fontsize=14, weight='bold')
-    ax2.set_title(f'Nombre Total de Positions Ouvertes au Fil du Temps (Pic: {max_open_positions:.0f})', fontsize=16)
+    ax2.set_title('Nombre Total de Positions Ouvertes au Fil du Temps', fontsize=16)
     ax2.grid(True, which='both', linestyle='--', linewidth=0.5)
     ax2.legend(loc='upper left')
 
-    # --- Key Figures Card ---
-    stats_text = (
-        f"**Chiffres Clés Globaux**\n\n"
-        f"Rendement Total Moyen: {global_stats['avg_total_return']:.2f}%\n"
-        f"Rendement Moyen/Trade: {global_stats['avg_return_per_trade']:.2f}%\n"
-        f"--------------------------------------\n"
-        f"Achats: {global_stats['total_buys']}\n"
-        f"Ventes: {global_stats['total_sells']}\n"
-        f"Holds: {global_stats['total_holds']}\n"
-        f"Trades Complets: {global_stats['total_completed_trades']}\n"
-        f"Positions Finales: {global_stats['final_open_positions']}"
-    )
-    
-    # Place text box to the right of the plots. We use subplots_adjust to create space.
-    fig.text(0.83, 0.45, stats_text, 
-             fontsize=12,
-             verticalalignment='center', 
-             bbox=dict(boxstyle='round,pad=0.5', facecolor='white', alpha=0.95))
-
-    # Adjust subplot parameters to make room for the card and legend on the right.
-    # This replaces tight_layout for more precise control.
-    fig.subplots_adjust(left=0.07, right=0.8, top=0.94, bottom=0.06)
+    plt.tight_layout(rect=[0, 0, 0.9, 0.95]) # Adjust layout for suptitle and legend
     
     output_filename = 'Vizu/rapport_performance_global.png'
     fig.savefig(output_filename)
@@ -346,7 +298,7 @@ def run_backtest_for_symbol(symbol):
     agent = Agent(window_size, n_features, pretrained=True, model_name=model_name)
 
     # Evaluate the model
-    agent_profit, history, cumulative_profits, trade_dates = evaluate_model(agent, env, debug=False)
+    agent_profit, history, cumulative_profits = evaluate_model(agent, env, debug=False)
 
     # --- Calculate All Metrics ---
     metrics = analyze_trades(history)
@@ -375,9 +327,10 @@ def run_backtest_for_symbol(symbol):
     plot_single_performance(data, history, metrics, cumulative_profits, model_name, window_size, fg_index, symbol)
     
     # Return data needed for the global plot
+    eval_start_index = window_size - 1
     return {
         "symbol": symbol,
-        "trade_dates": trade_dates, # Use the synchronized dates
+        "dates": data['dates'][eval_start_index:],
         "cumulative_profit_usd": cumulative_profits,
         "initial_price": initial_price,
         "history": history,
@@ -406,45 +359,11 @@ def main():
             logging.error(f"Une erreur est survenue lors du traitement du symbole {symbol}: {e}", exc_info=True)
 
     if not all_results:
-        logging.error("Aucun backtest n'a pu être exécuté avec succès. Le rapport global ne sera pas généré.")
+        logging.error("Aucun backtest n'a pu être exécuté avec succès. Arrêt du script.")
         return
 
-    # --- Global Stats Calculation ---
-    total_buys = sum(res['metrics']['buy_count'] for res in all_results)
-    total_sells = sum(res['metrics']['sell_count'] for res in all_results)
-    total_holds = sum(res['metrics']['hold_count'] for res in all_results)
-    total_completed_trades = sum(res['metrics']['total_trades'] for res in all_results)
-    final_open_positions = total_buys - total_sells
-    
-    # Calculate average returns
-    valid_trade_results = [res['metrics']['average_profit_pct'] for res in all_results if res['metrics']['total_trades'] > 0]
-    avg_return_per_trade = np.mean(valid_trade_results) if valid_trade_results else 0
-    avg_total_return = np.mean([res['metrics']['agent_return_pct'] for res in all_results])
-
-    global_stats = {
-        "avg_total_return": avg_total_return,
-        "avg_return_per_trade": avg_return_per_trade,
-        "total_buys": total_buys,
-        "total_sells": total_sells,
-        "total_holds": total_holds,
-        "total_completed_trades": total_completed_trades,
-        "final_open_positions": final_open_positions
-    }
-
-    print("\n" + "="*50)
-    print("📊 Synthèse Globale des Transactions")
-    print("="*50)
-    print(f"  - Rendement Total Moyen ....................: {global_stats['avg_total_return']:.2f}%")
-    print(f"  - Rendement Moyen/Trade ..................: {global_stats['avg_return_per_trade']:.2f}%")
-    print(f"  - Achats (total) .........................: {global_stats['total_buys']}")
-    print(f"  - Ventes (total) .........................: {global_stats['total_sells']}")
-    print(f"  - Holds (total) ..........................: {global_stats['total_holds']}")
-    print(f"  - Trades Complets ........................: {global_stats['total_completed_trades']}")
-    print(f"  - Positions Ouvertes (fin de période) ....: {global_stats['final_open_positions']}")
-    print("="*50 + "\n")
-
     # Generate the global performance plot
-    plot_global_performance(all_results, global_stats)
+    plot_global_performance(all_results)
     
     logging.info("Toutes les analyses sont terminées.")
 
