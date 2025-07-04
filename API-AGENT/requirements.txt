@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+requests
+pandas
+numpy
+tensorflow
+python-dotenv
+coloredlogs 
