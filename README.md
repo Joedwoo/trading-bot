@@ -1,8 +1,8 @@
 # Overview
 
 conda activate trading-bot
-python prepare_data.py ADA_5years.csv
-python visualize_results.py data/split/test_data.csv --model-name=model_trx_colab_best.keras
+python prepare_data.py XLM_5years.csv
+python visualize_results.py data/split/test_data.csv --model-name=model_ada_colab_best.keras
 
 
 
