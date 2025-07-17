@@ -1,8 +1,8 @@
 # Overview
 
 conda activate trading-bot
-python prepare_data.py BTCUSD_5years.csv
-python visualize_results.py data/split/test_data.csv --model-name=model_ibkr_colab_best.keras
+python prepare_data.py ETHUSD_5years.csv
+python visualize_results.py data/split/test_data.csv --model-name=model_btc_colab_best.keras
 
 
 
