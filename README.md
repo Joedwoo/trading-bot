@@ -1,8 +1,8 @@
 # Overview
 
 conda activate trading-bot
-python prepare_data.py DOGE_5years.csv
-python visualize_results.py data/split/test_data.csv --model-name=model_bnb_colab_best.keras
+python prepare_data.py TRX_5years.csv
+python visualize_results.py data/split/test_data.csv --model-name=model_doge_colab_best.keras
 
 
 
