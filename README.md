@@ -1,8 +1,8 @@
 # Overview
 
 conda activate trading-bot
-python prepare_data.py ETH_5years.csv
-python visualize_results.py data/split/test_data.csv --model-name=model_xrp_colab_best.keras
+python prepare_data.py SOL_5years.csv
+python visualize_results.py data/split/test_data.csv --model-name=model_eth_colab_best.keras
 
 
 
