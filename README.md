@@ -1,8 +1,8 @@
 # Overview
 
 conda activate trading-bot
-python prepare_data.py ETC_5years.csv
-python visualize_results.py data/split/test_data.csv --model-name=model_link_colab_best.keras
+python prepare_data.py LTC_5years.csv
+python visualize_results.py data/split/test_data.csv --model-name=model_etc_colab_best.keras
 
 
 
