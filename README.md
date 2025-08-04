@@ -6,7 +6,7 @@ python visualize_results.py data/split/test_data.csv --model-name=model_ltc_cola
 
 
 
-
+python batch_backtest.py data/split model_multi_asset_colab_best
 
 
 
