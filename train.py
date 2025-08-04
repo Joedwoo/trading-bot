@@ -1,5 +1,5 @@
 """
-Script for training Stock Trading Bot.
+Script for training Stock Trading Bot on multiple assets.
 
 Usage:
   train.py <data-dir> [--strategy=<strategy>]
@@ -9,23 +9,25 @@ Usage:
 
 Options:
   --strategy=<strategy>             Q-learning strategy to use for training the network. Options:
-                                      `dqn` i.e. Vanilla DQN,
-                                      `t-dqn` i.e. DQN with fixed target distribution,
-                                      `double-dqn` i.e. DQN with separate network for value estimation. [default: t-dqn]
+                                     `dqn` i.e. Vanilla DQN,
+                                     `t-dqn` i.e. DQN with fixed target distribution,
+                                     `double-dqn` i.e. DQN with separate network for value estimation. [default: t-dqn]
   --window-size=<window-size>       Size of the n-day window stock data representation
-                                    used as the feature vector. [default: 10]
+                                   used as the feature vector. [default: 10]
   --batch-size=<batch-size>         Number of samples to train on in one mini-batch
-                                    during training. [default: 32]
-  --episode-count=<episode-count>   Number of trading episodes to use for training. [default: 50]
+                                   during training. [default: 32]
+  --episode-count=<episode-count>   Number of epochs to use for training (one epoch is one pass over all assets). [default: 50]
   --model-name=<model-name>         Name of the pretrained model to use. [default: model_debug]
-  --patience=<patience>             Number of episodes to wait for improvement before early stopping. [default: 3]
+  --patience=<patience>             Number of epochs to wait for improvement before early stopping. [default: 3]
   --pretrained                      Specifies whether to continue training a previously
-                                    trained model (reads `model-name`).
+                                   trained model (reads `model-name`).
   --debug                           Specifies whether to use verbose logs during eval operation.
 """
 
 import logging
 import coloredlogs
+import os
+import random
 
 from docopt import docopt
 
@@ -44,91 +46,113 @@ from trading_bot.utils import (
 def main(data_dir, window_size, batch_size, ep_count, patience=3,
          strategy="t-dqn", model_name="model_debug", pretrained=False,
          debug=False):
-    """ Trains the stock trading bot using Deep Q-Learning.
-    Please see https://arxiv.org/abs/1312.5602 for more details.
-
-    Args: [python train.py --help]
+    """ Trains the stock trading bot using Deep Q-Learning on multiple assets.
     """
-    # Charger les données pré-splittées
-    logging.info(f"Chargement des données pré-splittées depuis {data_dir}")
-    train_data, val_data, test_data = load_prepared_data(data_dir)
+    # Lister tous les datasets disponibles
+    asset_dirs = [os.path.join(data_dir, d) for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d))]
+    if not asset_dirs:
+        logging.error(f"Aucun dossier d'actif trouvé dans {data_dir}")
+        return
+        
+    logging.info(f"{len(asset_dirs)} actifs détectés pour l'entraînement.")
+
+    # On charge un dataset pour initialiser l'agent avec les bonnes dimensions
+    temp_train_data, _, _ = load_prepared_data(asset_dirs[0])
+    n_features = temp_train_data['features'].shape[1]
     
-    # Initialiser les environnements
-    train_env = TradingEnvironment(train_data, window_size)
-    val_env = TradingEnvironment(val_data, window_size)
-    
-    # Calculer le nombre de features pour l'agent
-    n_features = train_data['features'].shape[1]
-    logging.info(f"Nombre de features: {n_features}")
-    logging.info(f"Taille de l'état: {(window_size - 1) + n_features}")
-    
-    # Initialiser l'agent avec la nouvelle signature
     agent = Agent(window_size, n_features, strategy=strategy, 
                   pretrained=pretrained, model_name=model_name)
-    
-    initial_offset = val_data['prices'][1] - val_data['prices'][0]
-    
-    # Variables pour early stopping et meilleur modèle
+
     best_val_profit = -float('inf')
     patience_counter = 0
-    best_episode = 0
+    best_epoch = 0
     
     print("=" * 80)
-    logging.info("🚀 Début de l'entraînement...")
+    logging.info("🚀 Début de l'entraînement multi-actifs...")
     logging.info(f"  - Stratégie: {strategy}")
-    logging.info(f"  - Episodes: {ep_count}")
-    logging.info(f"  - Window size: {window_size}")
-    logging.info(f"  - Batch size: {batch_size}")
+    logging.info(f"  - Époques: {ep_count}")
+    logging.info(f"  - Actifs: {len(asset_dirs)}")
     logging.info(f"  - Modèle: {model_name}")
-    logging.info(f"  - Patience: {patience} épisodes")
+    logging.info(f"  - Patience: {patience} époques")
     print("=" * 80)
 
-    for episode in range(1, ep_count + 1):
+    total_episodes = 0
+    for epoch in range(1, ep_count + 1):
         print(f"\n{'─' * 60}")
-        logging.info(f"🎯 Episode {episode}/{ep_count}")
+        logging.info(f"🏛️  Époque {epoch}/{ep_count}")
+        logging.info(f"{'─' * 60}")
         
-        train_result = train_model(agent, episode, train_env, ep_count=ep_count,
-                                   batch_size=batch_size)
-        val_result, _, _ = evaluate_model(agent, val_env, debug)
-        show_train_result(train_result, val_result, initial_offset)
-        
-        # Status du meilleur modèle et early stopping
-        print(f"{'─' * 40}")
-        if val_result > best_val_profit:
-            best_val_profit = val_result
-            best_episode = episode
-            patience_counter = 0
+        random.shuffle(asset_dirs) # Mélanger les actifs à chaque époque
+
+        epoch_has_improved = False
+        for asset_path in asset_dirs:
+            asset_name = os.path.basename(asset_path)
+            total_episodes += 1
             
-            # Sauvegarder le meilleur modèle
-            agent.save_best()
-            logging.info(f"🏆 Nouveau record ! Validation: ${best_val_profit:.2f}")
-            logging.info(f"💾 Meilleur modèle sauvegardé")
+            print(f"\n{'─' * 25} Entraînement sur: {asset_name} {'─' * 25}")
+            
+            try:
+                # Charger les données pour l'actif courant
+                train_data, val_data, _ = load_prepared_data(asset_path)
+
+                # Initialiser les environnements
+                train_env = TradingEnvironment(train_data, window_size)
+                val_env = TradingEnvironment(val_data, window_size)
+                
+                initial_offset = val_data['prices'][1] - val_data['prices'][0]
+
+                # Entraîner pour un épisode
+                train_result = train_model(agent, total_episodes, train_env, ep_count=ep_count * len(asset_dirs),
+                                           batch_size=batch_size)
+                val_result, _, _ = evaluate_model(agent, val_env, debug)
+                
+                print(f"Résultat validation pour {asset_name}:")
+                show_train_result(train_result, val_result, initial_offset)
+
+                # Mise à jour du meilleur modèle
+                if val_result > best_val_profit:
+                    best_val_profit = val_result
+                    best_epoch = epoch
+                    agent.save_best()
+                    epoch_has_improved = True
+                    logging.info(f"🏆 Nouveau record sur '{asset_name}'! Validation: ${best_val_profit:.2f}")
+                    logging.info(f"💾 Meilleur modèle sauvegardé")
+
+            except Exception as e:
+                logging.error(f"Erreur lors de l'entraînement sur {asset_name}: {e}")
+                continue
+        
+        # Gestion de la patience à la fin de chaque époque
+        print(f"\n{'─' * 40}")
+        logging.info(f"Fin de l'époque {epoch}")
+        if epoch_has_improved:
+            patience_counter = 0
+            logging.info(f"✅ Amélioration détectée dans cette époque.")
         else:
             patience_counter += 1
-            logging.info(f"⏳ Pas d'amélioration depuis {patience_counter}/{patience} épisode(s)")
-            logging.info(f"🎯 Record actuel: ${best_val_profit:.2f} (Episode {best_episode})")
-            
-            # Early stopping si patience dépassée
-            if patience_counter >= patience:
-                print(f"\n{'═' * 60}")
-                logging.info(f"🛑 Early stopping déclenché !")
-                logging.info(f"🏆 Meilleur résultat: ${best_val_profit:.2f} (Episode {best_episode})")
-                print(f"{'═' * 60}")
-                break
+            logging.info(f"⏳ Pas d'amélioration depuis {patience_counter}/{patience} époque(s)")
         
-        # Sauvegarde périodique (tous les 10 épisodes)
-        if episode % 10 == 0:
-            agent.save(episode)
-            logging.info(f"💾 Sauvegarde périodique: models/{model_name}_{episode}")
-    
+        logging.info(f"🎯 Record actuel: ${best_val_profit:.2f} (Époque {best_epoch})")
+            
+        if patience_counter >= patience:
+            print(f"\n{'═' * 60}")
+            logging.info(f"🛑 Early stopping déclenché !")
+            logging.info(f"🏆 Meilleur résultat: ${best_val_profit:.2f} (Époque {best_epoch})")
+            print(f"{'═' * 60}")
+            break
+        
+        if epoch % 10 == 0:
+            agent.save(epoch)
+            logging.info(f"💾 Sauvegarde périodique: models/{model_name}_{epoch}")
+
     print(f"\n{'═' * 80}")
     logging.info("✅ Entraînement terminé !")
     print(f"{'═' * 80}")
     logging.info(f"📊 RÉSUMÉ FINAL:")
-    logging.info(f"  🏆 Meilleur résultat validation: ${best_val_profit:.2f} (Episode {best_episode})")
+    logging.info(f"  🏆 Meilleur résultat validation: ${best_val_profit:.2f} (Époque {best_epoch})")
     logging.info(f"  💾 Meilleur modèle: models/{model_name}_best")
-    logging.info(f"  📁 Modèles sauvegardés: models/{model_name}_*")
-    logging.info(f"  📈 Total épisodes: {episode}/{ep_count}")
+    logging.info(f"  📈 Total époques: {epoch}/{ep_count}")
+    logging.info(f"  🤖 Total épisodes d'entraînement: {total_episodes}")
     print(f"{'═' * 80}")
 
 
@@ -145,7 +169,7 @@ if __name__ == "__main__":
     pretrained = args["--pretrained"]
     debug = args["--debug"]
 
-    coloredlogs.install(level="DEBUG")
+    coloredlogs.install(level="INFO") # Changed to INFO for cleaner logs
     switch_k_backend_device()
 
     try:
@@ -155,4 +179,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("Aborted!")
     except Exception as e:
-        logging.error(f"Erreur: {e}")
+        logging.error(f"Erreur: {e}", exc_info=True)
