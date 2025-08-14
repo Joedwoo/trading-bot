@@ -12,6 +12,7 @@ from tensorflow.keras.models import load_model, clone_model
 from tensorflow.keras.layers import Dense, Input
 from tensorflow.keras.optimizers import Adam
 import tensorflow.keras as keras
+from tensorflow.keras.utils import get_custom_objects
 
 
 def huber_loss(y_true, y_pred, clip_delta=1.0):
@@ -25,6 +26,10 @@ def huber_loss(y_true, y_pred, clip_delta=1.0):
     squared_loss = 0.5 * tf.square(error)
     quadratic_loss = 0.5 * tf.square(clip_delta) + clip_delta * (tf.abs(error) - clip_delta)
     return tf.reduce_mean(tf.where(cond, squared_loss, quadratic_loss))
+
+
+# Enregistrer la fonction de perte personnalisée dans le scope global de Keras
+get_custom_objects().update({'huber_loss': huber_loss})
 
 
 class Agent:
@@ -52,7 +57,7 @@ class Agent:
         self.epsilon_decay = 0.995
         self.learning_rate = 0.0001
         self.loss = huber_loss
-        self.custom_objects = {"huber_loss": huber_loss}  # important for loading the model from memory
+        self.custom_objects = {"huber_loss": huber_loss}  # Laisser ceci pour la compatibilité explicite du chargement
         self.optimizer = Adam(learning_rate=self.learning_rate)
 
         if pretrained and self.model_name is not None:
