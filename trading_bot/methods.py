@@ -42,7 +42,7 @@ def train_model(agent, episode, env, ep_count=100, batch_size=32):
         agent.remember(state.reshape(1, -1), action, reward, next_state.reshape(1, -1), done)
 
         if len(agent.memory) > batch_size:
-            loss = agent.train_experience_replay(batch_size)
+            loss = agent.train_experience_replay(batch_size, episode)
             avg_loss.append(loss)
 
         state = next_state
@@ -67,8 +67,8 @@ def train_model(agent, episode, env, ep_count=100, batch_size=32):
                 f"Loss={avg_loss_val:.4f} | Actions: BUY={buy_count:3d} SELL={sell_count:3d} HOLD={hold_count:3d} | "
                 f"ε={agent.epsilon:.3f} | Inventory={info['inventory_size']}")
 
-    if episode % 10 == 0:
-        agent.save(episode)
+    # if episode % 10 == 0:
+    #     agent.save(episode)
 
     return (episode, ep_count, total_profit, avg_loss_val)
 

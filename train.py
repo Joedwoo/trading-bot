@@ -117,9 +117,9 @@ def main(data_dir, window_size, batch_size, ep_count, patience=3,
                 break
         
         # Sauvegarde périodique (tous les 10 épisodes)
-        if episode % 10 == 0:
-            agent.save(episode)
-            logging.info(f"💾 Sauvegarde périodique: models/{model_name}_{episode}")
+        # if episode % 10 == 0:
+        #     agent.save(episode)
+        #     logging.info(f"💾 Sauvegarde périodique: models/{model_name}_{episode}")
     
     print(f"\n{'═' * 80}")
     logging.info("✅ Entraînement terminé !")
@@ -145,7 +145,7 @@ if __name__ == "__main__":
     pretrained = args["--pretrained"]
     debug = args["--debug"]
 
-    coloredlogs.install(level="DEBUG")
+    coloredlogs.install(level="INFO", format='%(asctime)s %(levelname)s %(message)s')
     switch_k_backend_device()
 
     try:
@@ -155,4 +155,6 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("Aborted!")
     except Exception as e:
-        logging.error(f"Erreur: {e}")
+        logging.error(f"An error occurred: {e}")
+        # Optionally, re-raise or handle specific exceptions for better debugging
+        # raise e

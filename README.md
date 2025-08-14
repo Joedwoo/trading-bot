@@ -90,16 +90,33 @@ In order to use this project, you'll need to install the required python package
 pip3 install -r requirements.txt
 ```
 
-Now you can open up a terminal and start training the agent:
+Now you can open up a terminal and start training the agent.
+
+### Single Agent Training
+
+To train a single agent for a specific ticker, provide the path to its data directory:
 
 ```bash
-python3 train.py data/GOOG.csv data/GOOG_2018.csv --strategy t-dqn
+python3 train.py data/split/GOOG --model-name=model_goog --episode-count=50
+```
+
+### Batch Training (All Agents)
+
+To train agents for all available tickers in `data/split` sequentially, use the `batch_train.py` script:
+
+```bash
+python3 batch_train.py --episode-count=50
+```
+
+You can also customize the batch size and early stopping patience:
+```bash
+python3 batch_train.py --episode-count=100 --batch-size=64 --patience=10
 ```
 
 Once you're done training, run the evaluation script and let the agent make trading decisions:
 
 ```bash
-python3 eval.py data/GOOG_2019.csv --model-name model_GOOG_50 --debug
+python3 eval.py data/split/GOOG/test_data.csv --model-name models/model_goog_best.keras --debug
 ```
 
 Now you are all set up!

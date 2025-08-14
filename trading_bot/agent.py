@@ -43,6 +43,7 @@ class Agent:
         self.inventory = []
         self.memory = deque(maxlen=10000)
         self.first_iter = True
+        self.episode = 0 # Ajout du suivi de l'épisode
 
         # model config
         self.model_name = model_name
@@ -114,9 +115,10 @@ class Agent:
         
         return action, action_probs[0]
 
-    def train_experience_replay(self, batch_size):
+    def train_experience_replay(self, batch_size, episode):
         """Train on previous experiences in memory
         """
+        self.episode = episode # Mise à jour de l'épisode
         mini_batch = random.sample(self.memory, batch_size)
 
         # Vectorized processing for efficiency
@@ -160,9 +162,13 @@ class Agent:
         # Fit the model
         loss = self.model.fit(states, targets, epochs=1, verbose=0).history["loss"][0]
 
-        # Decay epsilon
+        # Decay epsilon based on the episode number
         if self.epsilon > self.epsilon_min:
-            self.epsilon *= self.epsilon_decay
+            if self.episode < 10:
+                decay = 0.999
+            else:
+                decay = self.epsilon_decay
+            self.epsilon *= decay
 
         # Update target network for t-dqn and double-dqn
         if self.strategy in ["t-dqn", "double-dqn"]:
@@ -172,10 +178,6 @@ class Agent:
 
         return loss
 
-    def save(self, episode):
-        os.makedirs("models", exist_ok=True)
-        self.model.save("models/{}_{}.keras".format(self.model_name, episode))
-    
     def save_best(self, suffix="best"):
         """Sauvegarde le meilleur modèle"""
         os.makedirs("models", exist_ok=True)
