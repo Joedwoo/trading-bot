@@ -14,7 +14,6 @@ from tensorflow.keras.optimizers import Adam
 import tensorflow.keras as keras
 
 
-@keras.saving.register_keras_serializable()
 def huber_loss(y_true, y_pred, clip_delta=1.0):
     """Huber loss - Custom Loss Function for Q Learning
 
