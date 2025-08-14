@@ -5,13 +5,13 @@ from collections import deque
 
 import numpy as np
 import tensorflow as tf
-import keras.backend as K
+import tensorflow.keras.backend as K
 
-from keras.models import Sequential
-from keras.models import load_model, clone_model
-from keras.layers import Dense, Input
-from keras.optimizers import Adam
-import keras
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import load_model, clone_model
+from tensorflow.keras.layers import Dense, Input
+from tensorflow.keras.optimizers import Adam
+import tensorflow.keras as keras
 
 
 @keras.saving.register_keras_serializable()
