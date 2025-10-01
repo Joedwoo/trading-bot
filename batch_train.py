@@ -2,9 +2,10 @@
 Script for batch training of Stock Trading Bots for multiple tickers.
 
 Usage:
-  batch_train.py [--episode-count=<episode-count>] [--batch-size=<batch-size>] [--patience=<patience>]
+  batch_train.py [--strategy=<strategy>] [--episode-count=<episode-count>] [--batch-size=<batch-size>] [--patience=<patience>]
 
 Options:
+  --strategy=<strategy>         Q-learning strategy: dqn | t-dqn | double-dqn. [default: double-dqn]
   --episode-count=<episode-count>   Number of trading episodes for each agent. [default: 50]
   --batch-size=<batch-size>         Number of samples to train on in one mini-batch. [default: 32]
   --patience=<patience>             Number of episodes to wait for improvement before early stopping. [default: 5]
@@ -18,7 +19,7 @@ from train import main as train_main
 from trading_bot.utils import switch_k_backend_device
 
 
-def batch_train(ep_count, batch_size, patience):
+def batch_train(ep_count, batch_size, patience, strategy):
     """
     Trains agents for all tickers found in the data/split directory.
     """
@@ -47,7 +48,6 @@ def batch_train(ep_count, batch_size, patience):
         
         # Default parameters from train.py, can be exposed here if needed
         window_size = 10
-        strategy = "t-dqn"
         pretrained = False
         debug = False
         
@@ -72,6 +72,7 @@ def batch_train(ep_count, batch_size, patience):
 if __name__ == "__main__":
     args = docopt(__doc__)
     
+    strategy = args['--strategy']
     ep_count = int(args['--episode-count'])
     batch_size = int(args['--batch-size'])
     patience = int(args['--patience'])
@@ -79,4 +80,4 @@ if __name__ == "__main__":
     coloredlogs.install(level="INFO", format='%(asctime)s %(levelname)s %(message)s')
     switch_k_backend_device()
     
-    batch_train(ep_count, batch_size, patience)
+    batch_train(ep_count, batch_size, patience, strategy)
