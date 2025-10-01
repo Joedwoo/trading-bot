@@ -108,8 +108,16 @@ class TradingEnvironment:
         # SELL
         elif action == 2 and len(self.inventory) > 0:
             bought_price = self.inventory.pop(0)
-            reward = current_price - bought_price
-            self.total_profit += reward
+            pnl = current_price - bought_price
+            # Asymmetric reward focused on winrate
+            if pnl > 0:
+                reward = 1.0
+            elif pnl < 0:
+                reward = -1.5
+            else:
+                reward = 0.0
+            # Still accumulate true PnL for reporting
+            self.total_profit += pnl
             
         # HOLD
         elif action == 0 and len(self.inventory) > 0:

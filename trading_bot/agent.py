@@ -51,7 +51,7 @@ class Agent:
 
         # model config
         self.model_name = model_name
-        self.gamma = 0.95 # affinity for long term reward
+        self.gamma = 0.90 # reduced discount to focus on near-term success
         self.epsilon = 1.0
         self.epsilon_min = 0.01
         self.epsilon_decay = 0.995

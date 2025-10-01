@@ -1,0 +1,12 @@
+Dataset split information
+========================
+Total samples: 25480
+Train samples: 17836 (70.0%)
+Val samples: 3822 (15.0%)
+Test samples: 3822 (15.0%)
+Number of features: 71
+Feature names: ['open', 'high', 'low', 'volume', 'vwap', 'num_trades', 'tod_sin', 'tod_cos', 'dow_sin', 'dow_cos', 'vwap_session', 'dist_from_high_intra_atr', 'dist_from_low_intra_atr', 'close_over_vwap_session', 'rsi_14', 'macd', 'macd_signal', 'macd_hist', 'ema_9', 'ema_21', 'ema_60', 'sma_50', 'sma_200', 'bb_high', 'bb_low', 'bb_width', 'atr_14', 'keltner_hband', 'keltner_lband', 'keltner_width', 'donchian_h', 'donchian_l', 'donchian_width', 'adx_14', 'aroon_up_25', 'aroon_down_25', 'cci_20', 'stoch_k_14_3', 'stoch_d_14_3', 'williams_r_14', 'roc_10', 'obv', 'mfi_14', 'cmf_20', 'volume_z', 'ret_1', 'ret_5', 'ret_10', 'r_1', 'r_3', 'r_6', 'r_12', 'vol_roll_20', 'range_pct', 'body_pct', 'runlen_up', 'runlen_down', 'close_over_ema9', 'close_over_ema21', 'close_over_sma50', 'close_over_vwap', 'mtf15_ema20', 'mtf15_rsi14', 'mtf15_macd', 'mtf15_macd_signal', 'mtf15_atr14', 'mtf60_ema20', 'mtf60_rsi14', 'mtf60_macd', 'mtf60_macd_signal', 'mtf60_atr14']
+Date range: 2025-07-03T01:00:00Z to 2025-09-29T15:25:00Z
+Train dates: 2025-07-03T01:00:00Z to 2025-09-03T00:15:00Z
+Val dates: 2025-09-03T00:20:00Z to 2025-09-16T08:05:00Z
+Test dates: 2025-09-16T08:10:00Z to 2025-09-29T15:25:00Z

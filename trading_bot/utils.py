@@ -5,12 +5,10 @@ import math
 import numpy as np
 import pandas as pd
 
-import keras.backend as K
-
 from tqdm import tqdm
 import coloredlogs
 
-# Set Keras backend to TensorFlow
+# Set Keras backend to TensorFlow (harmless if TF not installed; used by training only)
 os.environ["KERAS_BACKEND"] = "tensorflow"
 
 
@@ -54,8 +52,7 @@ def get_stock_data(csv_file):
     if date_col is None or price_col is None:
         raise ValueError("Colonnes de date/prix introuvables. Requis: date|timestamp et price|close")
 
-    # Normaliser la colonne de date en string triable
-    # Laisser pandas gérer l'ordre lexicographique ISO8601 si déjà formatté
+    # Tri/normalisation d'index
     data.sort_values(date_col, inplace=True)
     data.reset_index(drop=True, inplace=True)
 
@@ -111,7 +108,10 @@ def load_prepared_data(data_dir):
 
 
 def switch_k_backend_device():
-    """Switches Keras backend to TensorFlow for CPU."""
-    if K.backend() == "tensorflow":
-        logging.debug("switching to TensorFlow for CPU")
+    """Configure CPU-only mode without requiring TensorFlow import at module level."""
+    try:
+        # Forcer le CPU si souhaité par les scripts d'entraînement
         os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+        logging.debug("CUDA_VISIBLE_DEVICES=-1 appliqué (CPU-only)")
+    except Exception as exc:
+        logging.debug(f"Impossible de définir CUDA_VISIBLE_DEVICES: {exc}")
