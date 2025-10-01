@@ -128,6 +128,9 @@ class TradingEnvironment:
             buy_price = pos['buy']
             age = pos['age']
             reward = - (buy_price * holding_penalty) - (0.00005 * age)
+        # HOLD while flat → small idle penalty to discourage infinite HOLD
+        elif action == 0 and len(self.inventory) == 0:
+            reward = -0.0001
 
         # --- Move to the next time step ---
         self.current_step += 1

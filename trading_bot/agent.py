@@ -101,10 +101,8 @@ class Agent:
         if not is_eval and random.random() <= self.epsilon:
             return random.randrange(self.action_size)
 
-        # In training, force a buy on the first step to kickstart exploration
-        if self.first_iter and not is_eval:
-            self.first_iter = False
-            return 1  # Action 1: BUY
+        # Removed forced BUY to align train/eval behavior
+        self.first_iter = False
 
         action_probs = self.model.predict(state, verbose=0)
         return np.argmax(action_probs[0])
