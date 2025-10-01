@@ -27,10 +27,11 @@ class TradingEnvironment:
         self.state_size = (self.window_size - 1) + self.n_features
 
         # Episode state
-        self.inventory = []
+        # Keep at most 1 open position to encourage short-term in/out cycles
+        self.inventory = []  # list of dicts: { 'buy': price, 'age': steps_held }
         self.total_profit = 0
         self.current_step = 0
-        self.max_open_positions = 4
+        self.max_open_positions = 1
 
     def _get_state(self):
         """
@@ -90,41 +91,43 @@ class TradingEnvironment:
         is_done = (self.current_step + 1) >= self.data_length
         
         current_price = self.prices[self.current_step]
-        reward = 0
+        reward = 0.0
         
-        # Define a small penalty for holding
-        holding_penalty = 0.0001 # 0.05% per step
+        # Stronger per-step holding penalty base (applied when holding and choosing HOLD)
+        holding_penalty = 0.0005
+
+        # Increment age of existing positions
+        for pos in self.inventory:
+            pos['age'] += 1
 
         # --- Execute action ---
         # BUY
         if action == 1:
-            # Empêcher d'ouvrir plus que max_open_positions
             if len(self.inventory) < self.max_open_positions:
-                self.inventory.append(current_price)
+                self.inventory.append({'buy': current_price, 'age': 0})
             else:
-                # Légère pénalité pour tentative d'achat au-delà de la limite
-                reward = -abs(current_price) * 0.00005
+                # Stronger penalty for attempt beyond capacity
+                reward = -abs(current_price) * 0.0002
 
-        # SELL
+        # SELL (close oldest)
         elif action == 2 and len(self.inventory) > 0:
-            bought_price = self.inventory.pop(0)
-            pnl = current_price - bought_price
-            # Asymmetric reward focused on winrate
+            pos = self.inventory.pop(0)
+            buy_price = pos['buy']
+            pnl = current_price - buy_price
             if pnl > 0:
                 reward = 1.0
             elif pnl < 0:
                 reward = -1.5
             else:
                 reward = 0.0
-            # Still accumulate true PnL for reporting
             self.total_profit += pnl
-            
-        # HOLD
+
+        # HOLD while in position → time-decayed penalty
         elif action == 0 and len(self.inventory) > 0:
-            # Penalize for holding a position
-            # This encourages the agent to close positions instead of holding indefinitely
-            bought_price = self.inventory[0] # Get the price of the oldest share
-            reward = - (bought_price * holding_penalty)
+            pos = self.inventory[0]
+            buy_price = pos['buy']
+            age = pos['age']
+            reward = - (buy_price * holding_penalty) - (0.00005 * age)
 
         # --- Move to the next time step ---
         self.current_step += 1
