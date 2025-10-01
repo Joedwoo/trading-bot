@@ -108,10 +108,14 @@ def load_prepared_data(data_dir):
 
 
 def switch_k_backend_device():
-    """Configure CPU-only mode without requiring TensorFlow import at module level."""
+    """Configure device usage.
+    By default: no-op (GPU allowed). Set FORCE_CPU=1 to disable GPU.
+    """
     try:
-        # Forcer le CPU si souhaité par les scripts d'entraînement
-        os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-        logging.debug("CUDA_VISIBLE_DEVICES=-1 appliqué (CPU-only)")
+        if os.environ.get("FORCE_CPU") == "1":
+            os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+            logging.debug("FORCE_CPU=1 détecté: CPU-only activé")
+        else:
+            logging.debug("GPU autorisé (aucun forçage CPU)")
     except Exception as exc:
-        logging.debug(f"Impossible de définir CUDA_VISIBLE_DEVICES: {exc}")
+        logging.debug(f"Configuration CUDA_VISIBLE_DEVICES ignorée: {exc}")

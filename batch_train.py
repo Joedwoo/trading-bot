@@ -53,11 +53,11 @@ def batch_train(ep_count, batch_size, patience, strategy):
         
         try:
             train_main(
-                data_dir=data_dir,
-                window_size=window_size,
-                batch_size=batch_size,
-                ep_count=ep_count,
-                patience=patience,
+                data_dir,
+                window_size,
+                batch_size,
+                ep_count,
+                patience,
                 strategy=strategy,
                 model_name=model_name,
                 pretrained=pretrained,
