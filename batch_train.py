@@ -25,6 +25,12 @@ def batch_train(ep_count, batch_size, patience):
     base_data_dir = "data/split"
     try:
         tickers = sorted([d for d in os.listdir(base_data_dir) if os.path.isdir(os.path.join(base_data_dir, d))])
+        # Find the index of CRWD and slice the list from that point
+        try:
+            crwd_index = tickers.index("CRWD")
+            tickers = tickers[crwd_index:]
+        except ValueError:
+            logging.error("CRWD not found in the ticker list. Starting from the beginning.")
     except FileNotFoundError:
         logging.error(f"Directory not found: {base_data_dir}. Please run prepare_data.py first.")
         return

@@ -2,10 +2,14 @@
 Script for training Stock Trading Bot.
 
 Usage:
-  train.py <data-dir> [--strategy=<strategy>]
+  train.py <data-path> [--strategy=<strategy>]
     [--window-size=<window-size>] [--batch-size=<batch-size>]
     [--episode-count=<episode-count>] [--model-name=<model-name>]
-    [--patience=<patience>] [--pretrained] [--debug]
+    [--patience=<patience>] [--pretrained] [--debug] [--cpu]
+  train.py --train-csv=<train-csv> --val-csv=<val-csv> [--strategy=<strategy>]
+    [--window-size=<window-size>] [--batch-size=<batch-size>]
+    [--episode-count=<episode-count>] [--model-name=<model-name>]
+    [--patience=<patience>] [--pretrained] [--debug] [--cpu]
 
 Options:
   --strategy=<strategy>             Q-learning strategy to use for training the network. Options:
@@ -22,6 +26,17 @@ Options:
   --pretrained                      Specifies whether to continue training a previously
                                     trained model (reads `model-name`).
   --debug                           Specifies whether to use verbose logs during eval operation.
+  --cpu                             Force CPU usage even if a GPU is available.
+  --train-csv=<train-csv>           Path to a CSV file for training split (raw CSV mode).
+  --val-csv=<val-csv>               Path to a CSV file for validation split (raw CSV mode).
+
+Notes:
+  - <data-path> peut être soit un dossier contenant `train_data.csv`, `val_data.csv`, `test_data.csv`,
+    soit un fichier CSV brut unique. Dans ce dernier cas, les données seront splittées en mémoire
+    (70%/15%/15%) après détection des colonnes `date|timestamp` et `price|close`. Les colonnes
+    cibles comme `target` ou `next_return` sont exclues des features.
+  - Alternativement, fournir `--train-csv` et `--val-csv` pour entraîner/valider sur deux CSV distincts
+    (sans split automatique). Dans ce mode, le test set n'est pas requis et sera aligné sur la validation.
 """
 
 import logging
@@ -34,6 +49,8 @@ from trading_bot.methods import train_model, evaluate_model
 from trading_bot.environment import TradingEnvironment
 from trading_bot.utils import (
     load_prepared_data,
+    get_stock_data,
+    split_data,
     format_currency,
     format_position,
     show_train_result,
@@ -41,17 +58,31 @@ from trading_bot.utils import (
 )
 
 
-def main(data_dir, window_size, batch_size, ep_count, patience=3,
+def main(data_path, window_size, batch_size, ep_count, patience=3,
          strategy="t-dqn", model_name="model_debug", pretrained=False,
-         debug=False):
+         debug=False, train_csv=None, val_csv=None):
     """ Trains the stock trading bot using Deep Q-Learning.
     Please see https://arxiv.org/abs/1312.5602 for more details.
 
     Args: [python train.py --help]
     """
-    # Charger les données pré-splittées
-    logging.info(f"Chargement des données pré-splittées depuis {data_dir}")
-    train_data, val_data, test_data = load_prepared_data(data_dir)
+    # Déterminer la source de données: deux CSV explicites, dossier, ou un CSV unique
+    import os
+
+    if train_csv and val_csv:
+        logging.info(f"Chargement du train CSV: {train_csv}")
+        train_data = get_stock_data(train_csv)
+        logging.info(f"Chargement du val CSV: {val_csv}")
+        val_data = get_stock_data(val_csv)
+        test_data = val_data
+    else:
+        if os.path.isdir(data_path):
+            logging.info(f"Chargement des données pré-splittées depuis {data_path}")
+            train_data, val_data, test_data = load_prepared_data(data_path)
+        else:
+            logging.info(f"Chargement du CSV brut puis split en mémoire depuis {data_path}")
+            full_data = get_stock_data(data_path)
+            train_data, val_data, test_data = split_data(full_data, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15)
     
     # Initialiser les environnements
     train_env = TradingEnvironment(train_data, window_size)
@@ -135,7 +166,7 @@ def main(data_dir, window_size, batch_size, ep_count, patience=3,
 if __name__ == "__main__":
     args = docopt(__doc__)
 
-    data_dir = args["<data-dir>"]
+    data_path = args.get("<data-path>")
     strategy = args["--strategy"]
     window_size = int(args["--window-size"])
     batch_size = int(args["--batch-size"])
@@ -144,14 +175,17 @@ if __name__ == "__main__":
     patience = int(args["--patience"])
     pretrained = args["--pretrained"]
     debug = args["--debug"]
+    cpu_force = args["--cpu"]
 
     coloredlogs.install(level="INFO", format='%(asctime)s %(levelname)s %(message)s')
-    switch_k_backend_device()
+    if cpu_force:
+        switch_k_backend_device()
 
     try:
-        main(data_dir, window_size, batch_size, ep_count, patience,
+        main(data_path, window_size, batch_size, ep_count, patience,
              strategy=strategy, model_name=model_name, 
-             pretrained=pretrained, debug=debug)
+             pretrained=pretrained, debug=debug,
+             train_csv=args.get("--train-csv"), val_csv=args.get("--val-csv"))
     except KeyboardInterrupt:
         print("Aborted!")
     except Exception as e:

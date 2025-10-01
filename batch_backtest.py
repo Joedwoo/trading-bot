@@ -11,11 +11,16 @@ import pandas as pd
 import matplotlib
 matplotlib.use('Agg') # Use a non-interactive backend
 import matplotlib.pyplot as plt
+from tensorflow.keras.utils import get_custom_objects
 
-from trading_bot.agent import Agent
+from trading_bot.agent import Agent, huber_loss
 from trading_bot.environment import TradingEnvironment
 from trading_bot.methods_batch import evaluate_model
 from trading_bot.utils import get_stock_data, format_currency, format_position
+
+# Enregistrer manuellement la fonction de perte pour la désérialisation
+get_custom_objects().update({'huber_loss': huber_loss})
+
 
 def analyze_trades(history):
     """
@@ -268,7 +273,7 @@ def main():
         
         symbol = match.group(1).upper()
         model_path = os.path.join(model_dir, model_file)
-        data_file = os.path.join("datasets", symbol, "test_data.csv")
+        data_file = os.path.join("data/split", symbol, "test_data.csv")
 
         if not os.path.exists(data_file):
             logging.error(f"Le fichier de données de test n'existe pas pour le symbole {symbol}: {data_file}")

@@ -30,6 +30,7 @@ class TradingEnvironment:
         self.inventory = []
         self.total_profit = 0
         self.current_step = 0
+        self.max_open_positions = 4
 
     def _get_state(self):
         """
@@ -97,7 +98,12 @@ class TradingEnvironment:
         # --- Execute action ---
         # BUY
         if action == 1:
-            self.inventory.append(current_price)
+            # Empêcher d'ouvrir plus que max_open_positions
+            if len(self.inventory) < self.max_open_positions:
+                self.inventory.append(current_price)
+            else:
+                # Légère pénalité pour tentative d'achat au-delà de la limite
+                reward = -abs(current_price) * 0.00005
 
         # SELL
         elif action == 2 and len(self.inventory) > 0:

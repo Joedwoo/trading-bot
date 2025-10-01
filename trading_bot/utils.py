@@ -38,29 +38,41 @@ def get_stock_price_change(stock_prices):
 
 
 def get_stock_data(csv_file):
-    """Loads data from a CSV file and calculates features."""
+    """Charge les données d'un fichier CSV brut et construit le tenseur de features.
+
+    - Détecte automatiquement les noms de colonnes pour la date ("date"/"timestamp")
+      et le prix ("price"/"close").
+    - Exclut explicitement les colonnes cibles ("target", "next_return") des features.
+    - Trie par date croissante et supprime les lignes NaN.
+    """
     logging.info(f"Chargement et préparation des données depuis {csv_file}...")
     data = pd.read_csv(csv_file)
-    data.sort_values('date', inplace=True)
+
+    # Détection des colonnes de date et de prix
+    date_col = 'date' if 'date' in data.columns else ('timestamp' if 'timestamp' in data.columns else None)
+    price_col = 'price' if 'price' in data.columns else ('close' if 'close' in data.columns else None)
+    if date_col is None or price_col is None:
+        raise ValueError("Colonnes de date/prix introuvables. Requis: date|timestamp et price|close")
+
+    # Normaliser la colonne de date en string triable
+    # Laisser pandas gérer l'ordre lexicographique ISO8601 si déjà formatté
+    data.sort_values(date_col, inplace=True)
     data.reset_index(drop=True, inplace=True)
 
-    # Assurer que les colonnes nécessaires sont présentes
-    required_cols = {'date', 'price', 'FGIndex', 'rsi', 'adx', 'standard_deviation', 'sma50', 'five_day_percentage'}
-    if not required_cols.issubset(data.columns):
-        missing = required_cols - set(data.columns)
-        raise ValueError(f"Colonnes manquantes dans le fichier CSV: {missing}")
-
-    # Supprimer les lignes avec des NaN (générés par les indicateurs)
+    # Supprimer les lignes avec des NaN (souvent dues aux indicateurs)
     data.dropna(inplace=True)
-    
-    # Récupérer les dates, prix et features
-    dates = data['date'].to_numpy()
-    prices = data['price'].to_numpy()
-    
-    feature_cols = ['FGIndex', 'rsi', 'adx', 'standard_deviation', 'sma50', 'five_day_percentage']
+
+    # Extraire dates et prix
+    dates = data[date_col].to_numpy()
+    prices = data[price_col].to_numpy()
+
+    # Construire la liste des features: toutes colonnes sauf date/prix et colonnes cibles connues
+    excluded_cols = {date_col, price_col, 'target', 'next_return'}
+    feature_cols = [col for col in data.columns if col not in excluded_cols]
+    if len(feature_cols) == 0:
+        raise ValueError("Aucune colonne de features après exclusion des colonnes date/prix/targets.")
     features = data[feature_cols].to_numpy()
-    
-    # Pas de normalisation - on garde les valeurs brutes pour plus de clarté
+
     return {'dates': dates, 'prices': prices, 'features': features}
 
 
